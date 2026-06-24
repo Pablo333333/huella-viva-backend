@@ -1,0 +1,155 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  SUPERVISOR
+  OPERARIO
+}
+
+model User {
+  id        String          @id @default(uuid())
+  email     String          @unique
+  password  String
+  name      String?
+  role      Role            @default(OPERARIO)
+  pushToken String?
+  tickets   Ticket[]
+  documents Document[]
+  history   TicketHistory[]
+  comments  Comment[]
+  sentTramites     Tramite[] @relation("SentTramites")
+  receivedTramites Tramite[] @relation("ReceivedTramites")
+  tramiteHistory   TramiteHistory[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}
+
+model Ticket {
+  id              String          @id @default(uuid())
+  title           String
+  description     String?
+  latitude        Float?
+  longitude       Float?
+  status          WorkflowState   @relation(fields: [workflowStateId], references: [id])
+  workflowStateId String
+  category        Category        @relation(fields: [categoryId], references: [id])
+  categoryId      String
+  user            User            @relation(fields: [userId], references: [id])
+  userId          String
+  documents       Document[]
+  history         TicketHistory[]
+  comments        Comment[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+model Document {
+  id            String   @id @default(uuid())
+  name          String
+  url           String
+  type          String?
+  extractedText String?
+  user          User     @relation(fields: [userId], references: [id])
+  userId        String
+  ticket        Ticket?  @relation(fields: [ticketId], references: [id])
+  ticketId      String?
+  tramite       Tramite? @relation(fields: [tramiteId], references: [id])
+  tramiteId     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+enum TramiteType {
+  SOLICITUD
+  CARTA
+  OFICIO
+  INFORME
+}
+
+model Tramite {
+  id             String          @id @default(uuid())
+  tipo           TramiteType
+  remitente      User            @relation("SentTramites", fields: [remitenteId], references: [id])
+  remitenteId    String
+  destinatario   User            @relation("ReceivedTramites", fields: [destinatarioId], references: [id])
+  destinatarioId String
+  estado         WorkflowState   @relation(fields: [estadoId], references: [id])
+  estadoId       String
+  fechaLimite    DateTime?
+  documents      Document[]
+  comments       Comment[]
+  history        TramiteHistory[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+model TramiteHistory {
+  id         String   @id @default(uuid())
+  tramite    Tramite  @relation(fields: [tramiteId], references: [id])
+  tramiteId  String
+  oldStateId String?
+  newStateId String
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+  timestamp  DateTime @default(now())
+}
+
+model WorkflowState {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  tickets     Ticket[]
+  tramites    Tramite[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  tickets     Ticket[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model TicketHistory {
+  id         String   @id @default(uuid())
+  ticket     Ticket   @relation(fields: [ticketId], references: [id])
+  ticketId   String
+  oldStateId String?
+  newStateId String
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+  timestamp  DateTime @default(now())
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  entityId     String
+  entityType   String
+  payloadHash  String
+  previousHash String?
+  timestamp    DateTime @default(now())
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  ticket    Ticket?  @relation(fields: [ticketId], references: [id])
+  ticketId  String?
+  tramite   Tramite? @relation(fields: [tramiteId], references: [id])
+  tramiteId String?
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  createdAt DateTime @default(now())
+}

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: 'Helvetica', sans-serif; color: #333; line-height: 1.6; padding: 40px; }
+        .header { border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px; }
+        .logo { font-size: 24px; font-weight: bold; color: #2563eb; }
+        .title { font-size: 20px; font-weight: bold; margin-bottom: 10px; }
+        .metadata { font-size: 12px; color: #666; margin-bottom: 20px; }
+        .section { margin-bottom: 20px; }
+        .label { font-weight: bold; color: #111; display: block; margin-bottom: 5px; }
+        .content { background: #f9fafb; padding: 15px; border-radius: 8px; border: 1px solid #e5e7eb; }
+        .footer { margin-top: 50px; font-size: 10px; color: #999; text-align: center; border-top: 1px solid #eee; padding-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">KONTROLIA</div>
+        <div>Reporte Oficial de Ticket</div>
+    </div>
+
+    <div class="metadata">
+        <strong>ID:</strong> {{id}}<br>
+        <strong>Fecha de Generación:</strong> {{currentDate}}<br>
+        <strong>Generado por:</strong> {{userName}}
+    </div>
+
+    <div class="section">
+        <div class="title">{{title}}</div>
+        <div class="metadata">
+            <strong>Categoría:</strong> {{categoryName}} | 
+            <strong>Estado Actual:</strong> {{statusName}}
+        </div>
+    </div>
+
+    <div class="section">
+        <span class="label">Descripción del Caso:</span>
+        <div class="content">
+            {{description}}
+        </div>
+    </div>
+
+    {{#if hasLocation}}
+    <div class="section">
+        <span class="label">Ubicación de Campo:</span>
+        <div class="content">
+            Latitud: {{latitude}}, Longitud: {{longitude}}
+        </div>
+    </div>
+    {{/if}}
+
+    <div class="footer">
+        Este documento es una representación digital oficial generada por el sistema KONTROLIA.<br>
+        © 2026 KONTROLIA - Gestión de Comunicación Inteligente.
+    </div>
+</body>
+</html>
