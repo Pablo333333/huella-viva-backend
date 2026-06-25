@@ -39,8 +39,11 @@ export class ChangeTicketStateUseCase {
     });
 
     // Actualizar el ticket
+    const isArchived = newState?.name === 'CERRADO';
+    
     await this.ticketRepository.update(ticketId, {
       workflowStateId: newStateId,
+      isArchived,
     });
 
     // Registrar en el historial

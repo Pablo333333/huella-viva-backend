@@ -48,8 +48,10 @@ let ChangeTicketStateUseCase = class ChangeTicketStateUseCase {
         const oldState = await this.prisma.workflowState.findUnique({
             where: { id: oldStateId },
         });
+        const isArchived = newState?.name === 'CERRADO';
         await this.ticketRepository.update(ticketId, {
             workflowStateId: newStateId,
+            isArchived,
         });
         const history = new ticket_history_entity_1.TicketHistory({
             ticketId,

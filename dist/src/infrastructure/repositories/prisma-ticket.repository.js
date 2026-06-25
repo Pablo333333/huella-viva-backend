@@ -28,6 +28,8 @@ let PrismaTicketRepository = class PrismaTicketRepository {
                 userId: ticket.userId,
                 categoryId: ticket.categoryId,
                 workflowStateId: ticket.workflowStateId,
+                priority: ticket.priority || 'BAJA',
+                isArchived: ticket.isArchived || false,
             },
         });
         return new ticket_entity_1.Ticket(created);
@@ -54,6 +56,9 @@ let PrismaTicketRepository = class PrismaTicketRepository {
             where.categoryId = filters.categoryId;
         if (filters?.workflowStateId)
             where.workflowStateId = filters.workflowStateId;
+        if (!filters?.includeArchived) {
+            where.isArchived = false;
+        }
         if (filters?.q) {
             where.OR = [
                 { title: { contains: filters.q, mode: 'insensitive' } },
@@ -66,36 +71,67 @@ let PrismaTicketRepository = class PrismaTicketRepository {
             include: {
                 category: true,
                 status: true,
+                documents: true,
             },
             orderBy: { createdAt: 'desc' },
         });
+        if (tickets.length > 0) {
+            console.log('[PrismaTicketRepository] First ticket structure:', JSON.stringify(tickets[0], null, 2));
+        }
         return tickets.map((t) => new ticket_entity_1.Ticket({
             ...t,
             categoryName: t.category.name,
             statusName: t.status.name,
+            documents: t.documents,
         }));
     }
     async getStats() {
-        const byCategory = await this.prisma.ticket.groupBy({
-            by: ['categoryId'],
-            _count: { _all: true },
+        console.log('[PrismaTicketRepository] Fetching full analytics stats...');
+        const allTickets = await this.prisma.ticket.findMany({
+            include: {
+                status: true,
+                category: true,
+                user: true,
+            }
         });
-        const byUser = await this.prisma.ticket.groupBy({
-            by: ['userId'],
-            _count: { _all: true },
+        console.log(`[PrismaTicketRepository] Total tickets found for analytics: ${allTickets.length}`);
+        const kpis = {
+            total: allTickets.length,
+            pending: allTickets.filter(t => t.status && ['NUEVO', 'EN_PROCESO'].includes(t.status.name.toUpperCase())).length,
+            completed: allTickets.filter(t => t.status && (t.status.name.toUpperCase() === 'CERRADO' || t.status.name.toUpperCase() === 'COMPLETADO')).length,
+            urgent: allTickets.filter(t => t.priority && ['URGENTE', 'MEDIA'].includes(t.priority.toUpperCase())).length,
+        };
+        const categoryMap = {};
+        allTickets.forEach(t => {
+            const name = t.category?.name || 'Sin Categoría';
+            categoryMap[name] = (categoryMap[name] || 0) + 1;
         });
-        const last7Days = await this.prisma.ticket.findMany({
-            where: {
-                createdAt: {
-                    gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-                },
-            },
-            select: {
-                createdAt: true,
-                workflowStateId: true,
-            },
+        const byCategory = Object.entries(categoryMap).map(([name, value]) => ({ name, value }));
+        const userMap = {};
+        allTickets.forEach(t => {
+            const name = t.user?.name || 'Usuario Desconocido';
+            userMap[name] = (userMap[name] || 0) + 1;
         });
-        return { byCategory, byUser, last7Days };
+        const byUser = Object.entries(userMap).map(([name, tickets]) => ({ name, tickets }));
+        const evolution = [];
+        for (let i = 6; i >= 0; i--) {
+            const date = new Date();
+            date.setDate(date.getDate() - i);
+            date.setHours(0, 0, 0, 0);
+            const nextDate = new Date(date);
+            nextDate.setDate(date.getDate() + 1);
+            const creados = allTickets.filter(t => new Date(t.createdAt) >= date && new Date(t.createdAt) < nextDate).length;
+            const cerrados = allTickets.filter(t => new Date(t.updatedAt) >= date && new Date(t.updatedAt) < nextDate &&
+                (t.status.name.toUpperCase() === 'CERRADO' || t.status.name.toUpperCase() === 'COMPLETADO')).length;
+            evolution.push({
+                name: date.toLocaleDateString('es-ES', { weekday: 'short' }),
+                creados,
+                cerrados
+            });
+        }
+        const result = { kpis, byCategory, byUser, evolution };
+        console.log('[PrismaTicketRepository] Analytics result:', JSON.stringify(result, null, 2));
+        return result;
     }
     async update(id, ticket) {
         const updated = await this.prisma.ticket.update({
@@ -105,6 +141,8 @@ let PrismaTicketRepository = class PrismaTicketRepository {
                 description: ticket.description,
                 workflowStateId: ticket.workflowStateId,
                 categoryId: ticket.categoryId,
+                priority: ticket.priority,
+                isArchived: ticket.isArchived,
             },
         });
         return new ticket_entity_1.Ticket(updated);

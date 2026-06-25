@@ -15,6 +15,12 @@ enum Role {
   OPERARIO
 }
 
+enum Priority {
+  BAJA
+  MEDIA
+  URGENTE
+}
+
 model User {
   id        String          @id @default(uuid())
   email     String          @unique
@@ -48,6 +54,8 @@ model Ticket {
   documents       Document[]
   history         TicketHistory[]
   comments        Comment[]
+  priority        Priority        @default(BAJA)
+  isArchived      Boolean         @default(false)
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 }
@@ -57,6 +65,8 @@ model Document {
   name          String
   url           String
   type          String?
+  version       Int      @default(1)
+  isLatest      Boolean  @default(true)
   extractedText String?
   user          User     @relation(fields: [userId], references: [id])
   userId        String

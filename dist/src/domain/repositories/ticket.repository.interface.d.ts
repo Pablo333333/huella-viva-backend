@@ -6,6 +6,7 @@ export interface ITicketRepository {
         categoryId?: string;
         workflowStateId?: string;
         q?: string;
+        includeArchived?: boolean;
     }): Promise<Ticket[]>;
     getStats(): Promise<any>;
     update(id: string, ticket: Partial<Ticket>): Promise<Ticket>;

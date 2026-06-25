@@ -5,15 +5,15 @@ export declare class CatalogController {
     getCategories(): Promise<{
         id: string;
         name: string;
-        description: string | null;
         createdAt: Date;
         updatedAt: Date;
+        description: string | null;
     }[]>;
     getWorkflowStates(): Promise<{
         id: string;
         name: string;
-        description: string | null;
         createdAt: Date;
         updatedAt: Date;
+        description: string | null;
     }[]>;
 }

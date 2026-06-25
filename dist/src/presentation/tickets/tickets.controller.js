@@ -35,6 +35,7 @@ const current_user_decorator_1 = require("../../common/decorators/current-user.d
 const ticket_repository_interface_1 = require("../../domain/repositories/ticket.repository.interface");
 const ticket_history_repository_interface_1 = require("../../domain/repositories/ticket-history.repository.interface");
 const common_2 = require("@nestjs/common");
+const prisma_service_1 = require("../../infrastructure/prisma/prisma.service");
 let TicketsController = class TicketsController {
     createTicketUseCase;
     changeTicketStateUseCase;
@@ -44,9 +45,10 @@ let TicketsController = class TicketsController {
     getTicketCommentsUseCase;
     generateDocumentUseCase;
     summarizeTicketConversationUseCase;
+    prisma;
     ticketRepository;
     ticketHistoryRepository;
-    constructor(createTicketUseCase, changeTicketStateUseCase, uploadDocumentUseCase, getTicketDocumentsUseCase, createCommentUseCase, getTicketCommentsUseCase, generateDocumentUseCase, summarizeTicketConversationUseCase, ticketRepository, ticketHistoryRepository) {
+    constructor(createTicketUseCase, changeTicketStateUseCase, uploadDocumentUseCase, getTicketDocumentsUseCase, createCommentUseCase, getTicketCommentsUseCase, generateDocumentUseCase, summarizeTicketConversationUseCase, prisma, ticketRepository, ticketHistoryRepository) {
         this.createTicketUseCase = createTicketUseCase;
         this.changeTicketStateUseCase = changeTicketStateUseCase;
         this.uploadDocumentUseCase = uploadDocumentUseCase;
@@ -55,6 +57,7 @@ let TicketsController = class TicketsController {
         this.getTicketCommentsUseCase = getTicketCommentsUseCase;
         this.generateDocumentUseCase = generateDocumentUseCase;
         this.summarizeTicketConversationUseCase = summarizeTicketConversationUseCase;
+        this.prisma = prisma;
         this.ticketRepository = ticketRepository;
         this.ticketHistoryRepository = ticketHistoryRepository;
     }
@@ -80,12 +83,29 @@ let TicketsController = class TicketsController {
         return this.ticketHistoryRepository.findByTicketId(id);
     }
     async uploadFile(id, file, user) {
+        const existingDoc = await this.prisma.document.findFirst({
+            where: {
+                ticketId: id,
+                name: file.originalname,
+                isLatest: true,
+            },
+        });
+        let version = 1;
+        if (existingDoc) {
+            version = existingDoc.version + 1;
+            await this.prisma.document.update({
+                where: { id: existingDoc.id },
+                data: { isLatest: false },
+            });
+        }
         return this.uploadDocumentUseCase.execute({
             name: file.originalname,
             url: `/uploads/${file.filename}`,
             type: file.mimetype,
             userId: user.userId,
             ticketId: id,
+            version,
+            isLatest: true,
         });
     }
     async getDocuments(id) {
@@ -223,8 +243,8 @@ __decorate([
 exports.TicketsController = TicketsController = __decorate([
     (0, common_1.Controller)('tickets'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    __param(8, (0, common_2.Inject)(ticket_repository_interface_1.ITicketRepository)),
-    __param(9, (0, common_2.Inject)(ticket_history_repository_interface_1.ITicketHistoryRepository)),
+    __param(9, (0, common_2.Inject)(ticket_repository_interface_1.ITicketRepository)),
+    __param(10, (0, common_2.Inject)(ticket_history_repository_interface_1.ITicketHistoryRepository)),
     __metadata("design:paramtypes", [create_ticket_use_case_1.CreateTicketUseCase,
         change_ticket_state_use_case_1.ChangeTicketStateUseCase,
         upload_document_use_case_1.UploadDocumentUseCase,
@@ -232,6 +252,7 @@ exports.TicketsController = TicketsController = __decorate([
         create_comment_use_case_1.CreateCommentUseCase,
         get_ticket_comments_use_case_1.GetTicketCommentsUseCase,
         generate_document_use_case_1.GenerateDocumentUseCase,
-        summarize_ticket_conversation_use_case_1.SummarizeTicketConversationUseCase, Object, Object])
+        summarize_ticket_conversation_use_case_1.SummarizeTicketConversationUseCase,
+        prisma_service_1.PrismaService, Object, Object])
 ], TicketsController);
 //# sourceMappingURL=tickets.controller.js.map

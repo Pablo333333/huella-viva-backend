@@ -7,9 +7,12 @@ export declare class Ticket {
     workflowStateId: string;
     categoryId: string;
     userId: string;
+    priority: string;
+    isArchived: boolean;
     createdAt: Date;
     updatedAt: Date;
     categoryName?: string;
     statusName?: string;
+    documents?: any[];
     constructor(props: Partial<Ticket>);
 }

@@ -21,6 +21,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ITicketRepository } from '../../domain/repositories/ticket.repository.interface';
 import { ITicketHistoryRepository } from '../../domain/repositories/ticket-history.repository.interface';
 import { Inject } from '@nestjs/common';
+import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 
 @Controller('tickets')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -34,6 +35,7 @@ export class TicketsController {
     private readonly getTicketCommentsUseCase: GetTicketCommentsUseCase,
     private readonly generateDocumentUseCase: GenerateDocumentUseCase,
     private readonly summarizeTicketConversationUseCase: SummarizeTicketConversationUseCase,
+    private readonly prisma: PrismaService,
     @Inject(ITicketRepository)
     private readonly ticketRepository: ITicketRepository,
     @Inject(ITicketHistoryRepository)
@@ -101,13 +103,34 @@ export class TicketsController {
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() user: { userId: string },
   ) {
+    // Lógica de versionado: buscar si ya existe un documento con el mismo nombre para este ticket
+    const existingDoc = await this.prisma.document.findFirst({
+      where: {
+        ticketId: id,
+        name: file.originalname,
+        isLatest: true,
+      },
+    });
+
+    let version = 1;
+    if (existingDoc) {
+      version = existingDoc.version + 1;
+      // Marcar la versión anterior como no actual
+      await this.prisma.document.update({
+        where: { id: existingDoc.id },
+        data: { isLatest: false },
+      });
+    }
+
     return this.uploadDocumentUseCase.execute({
       name: file.originalname,
       url: `/uploads/${file.filename}`,
       type: file.mimetype,
       userId: user.userId,
       ticketId: id,
-    });
+      version,
+      isLatest: true,
+    } as any);
   }
 
   @Get(':id/documents')

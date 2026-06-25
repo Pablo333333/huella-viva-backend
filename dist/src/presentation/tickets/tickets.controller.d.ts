@@ -11,6 +11,7 @@ import { CreateTicketDto } from '../../application/dtos/create-ticket.dto';
 import { ChangeTicketStatusDto } from '../../application/dtos/change-ticket-status.dto';
 import { ITicketRepository } from '../../domain/repositories/ticket.repository.interface';
 import { ITicketHistoryRepository } from '../../domain/repositories/ticket-history.repository.interface';
+import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 export declare class TicketsController {
     private readonly createTicketUseCase;
     private readonly changeTicketStateUseCase;
@@ -20,9 +21,10 @@ export declare class TicketsController {
     private readonly getTicketCommentsUseCase;
     private readonly generateDocumentUseCase;
     private readonly summarizeTicketConversationUseCase;
+    private readonly prisma;
     private readonly ticketRepository;
     private readonly ticketHistoryRepository;
-    constructor(createTicketUseCase: CreateTicketUseCase, changeTicketStateUseCase: ChangeTicketStateUseCase, uploadDocumentUseCase: UploadDocumentUseCase, getTicketDocumentsUseCase: GetTicketDocumentsUseCase, createCommentUseCase: CreateCommentUseCase, getTicketCommentsUseCase: GetTicketCommentsUseCase, generateDocumentUseCase: GenerateDocumentUseCase, summarizeTicketConversationUseCase: SummarizeTicketConversationUseCase, ticketRepository: ITicketRepository, ticketHistoryRepository: ITicketHistoryRepository);
+    constructor(createTicketUseCase: CreateTicketUseCase, changeTicketStateUseCase: ChangeTicketStateUseCase, uploadDocumentUseCase: UploadDocumentUseCase, getTicketDocumentsUseCase: GetTicketDocumentsUseCase, createCommentUseCase: CreateCommentUseCase, getTicketCommentsUseCase: GetTicketCommentsUseCase, generateDocumentUseCase: GenerateDocumentUseCase, summarizeTicketConversationUseCase: SummarizeTicketConversationUseCase, prisma: PrismaService, ticketRepository: ITicketRepository, ticketHistoryRepository: ITicketHistoryRepository);
     create(createTicketDto: CreateTicketDto, user: {
         userId: string;
     }): Promise<import("../../domain/entities/ticket.entity").Ticket>;

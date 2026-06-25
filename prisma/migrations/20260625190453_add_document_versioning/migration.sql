@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Document" ADD COLUMN     "isLatest" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "version" INTEGER NOT NULL DEFAULT 1;

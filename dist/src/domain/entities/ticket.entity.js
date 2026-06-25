@@ -10,10 +10,13 @@ class Ticket {
     workflowStateId;
     categoryId;
     userId;
+    priority;
+    isArchived;
     createdAt;
     updatedAt;
     categoryName;
     statusName;
+    documents;
     constructor(props) {
         Object.assign(this, props);
     }
