@@ -9,11 +9,10 @@ export class Tramite {
     public readonly estadoId: string,
     public readonly createdAt: Date,
     public readonly updatedAt: Date,
-    public readonly fechaLimite?: Date,
+    public readonly fechaLimite: Date | null,
+    // Campos adicionales para la vista
     public readonly remitenteName?: string,
     public readonly destinatarioName?: string,
     public readonly estadoName?: string,
-    public readonly latitude?: number,
-    public readonly longitude?: number,
   ) {}
 }

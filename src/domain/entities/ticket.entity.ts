@@ -1,9 +1,9 @@
 export class Ticket {
   id: string;
   title: string;
-  description?: string;
-  latitude?: number;
-  longitude?: number;
+  description: string | null;
+  latitude: number | null;
+  longitude: number | null;
   workflowStateId: string;
   categoryId: string;
   userId: string;

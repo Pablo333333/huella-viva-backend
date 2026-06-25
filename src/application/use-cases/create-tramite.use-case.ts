@@ -16,8 +16,6 @@ export class CreateTramiteUseCase {
     const tramite = await this.tramiteRepository.create({
       ...dto,
       remitenteId,
-      latitude: dto.latitude,
-      longitude: dto.longitude,
       fechaLimite: dto.fechaLimite ? new Date(dto.fechaLimite) : undefined,
     });
 

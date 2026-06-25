@@ -5,6 +5,7 @@ import { TicketHistory } from '../../domain/entities/ticket-history.entity';
 import { NotificationService } from '../../infrastructure/notifications/notification.service';
 import { SocketGateway } from '../../infrastructure/socket/socket.gateway';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { AuditService } from '../../infrastructure/audit/audit.service';
 
 @Injectable()
 export class ChangeTicketStateUseCase {
@@ -16,6 +17,7 @@ export class ChangeTicketStateUseCase {
     private readonly notificationService: NotificationService,
     private readonly socketGateway: SocketGateway,
     private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
   ) {}
 
   async execute(ticketId: string, newStateId: string, userId: string): Promise<void> {
@@ -32,6 +34,10 @@ export class ChangeTicketStateUseCase {
       where: { id: newStateId },
     });
 
+    const oldState = await this.prisma.workflowState.findUnique({
+      where: { id: oldStateId },
+    });
+
     // Actualizar el ticket
     await this.ticketRepository.update(ticketId, {
       workflowStateId: newStateId,
@@ -46,6 +52,15 @@ export class ChangeTicketStateUseCase {
     });
 
     await this.ticketHistoryRepository.create(history);
+
+    // Trazabilidad Blockchain/AuditLog
+    await this.auditService.logAction(ticketId, 'Ticket', {
+      action: 'STATE_CHANGE',
+      oldStatus: oldState?.name,
+      newStatus: newState?.name,
+      timestamp: new Date().toISOString(),
+      responsibleId: userId,
+    });
 
     // Emitir evento real-time
     this.socketGateway.emitToRoom(ticketId, 'statusChanged', {

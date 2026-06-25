@@ -14,8 +14,6 @@ export class PrismaTramiteRepository implements ITramiteRepository {
         remitenteId: data.remitenteId!,
         destinatarioId: data.destinatarioId!,
         estadoId: data.estadoId!,
-        latitude: data.latitude,
-        longitude: data.longitude,
         fechaLimite: data.fechaLimite,
       },
       include: {
@@ -115,8 +113,6 @@ export class PrismaTramiteRepository implements ITramiteRepository {
       t.remitente?.name || undefined,
       t.destinatario?.name || undefined,
       t.estado?.name || undefined,
-      t.latitude || undefined,
-      t.longitude || undefined,
     );
   }
 }

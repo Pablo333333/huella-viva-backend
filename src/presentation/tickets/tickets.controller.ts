@@ -1,5 +1,5 @@
 import { Controller, Post, Body, UseGuards, Patch, Param, Get, Query, UseInterceptors, UploadedFile, Res } from '@nestjs/common';
-import { Response } from 'express';
+import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
@@ -90,7 +90,7 @@ export class TicketsController {
   @UseInterceptors(FileInterceptor('file', {
     storage: diskStorage({
       destination: './uploads',
-      filename: (req, file, cb) => {
+      filename: (req: any, file: any, cb: any) => {
         const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
         return cb(null, `${randomName}${extname(file.originalname)}`);
       }

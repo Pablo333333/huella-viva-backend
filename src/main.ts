@@ -1,10 +1,21 @@
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { join } from 'path';
 import * as express from 'express';
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
+  
+  if (!process.env.DATABASE_URL) {
+    logger.error('DATABASE_URL is not defined in environment variables at bootstrap');
+  } else {
+    logger.log('DATABASE_URL is defined at bootstrap');
+  }
+
   const app = await NestFactory.create(AppModule);
   
   // Habilitar validación global para DTOs

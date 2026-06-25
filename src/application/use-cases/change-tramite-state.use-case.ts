@@ -3,6 +3,7 @@ import { ITramiteRepository } from '../../domain/repositories/tramite.repository
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { NotificationService } from '../../infrastructure/notifications/notification.service';
 import { SocketGateway } from '../../infrastructure/socket/socket.gateway';
+import { AuditService } from '../../infrastructure/audit/audit.service';
 
 @Injectable()
 export class ChangeTramiteStateUseCase {
@@ -12,6 +13,7 @@ export class ChangeTramiteStateUseCase {
     private readonly prisma: PrismaService,
     private readonly notificationService: NotificationService,
     private readonly socketGateway: SocketGateway,
+    private readonly auditService: AuditService,
   ) {}
 
   async execute(tramiteId: string, newStateId: string, userId: string): Promise<void> {
@@ -28,6 +30,10 @@ export class ChangeTramiteStateUseCase {
       where: { id: newStateId },
     });
 
+    const oldState = await this.prisma.workflowState.findUnique({
+      where: { id: oldStateId },
+    });
+
     // Actualizar el tramite
     await this.tramiteRepository.update(tramiteId, {
       estadoId: newStateId,
@@ -41,6 +47,15 @@ export class ChangeTramiteStateUseCase {
         newStateId,
         userId,
       },
+    });
+
+    // Trazabilidad Blockchain/AuditLog
+    await this.auditService.logAction(tramiteId, 'Tramite', {
+      action: 'STATE_CHANGE',
+      oldStatus: oldState?.name,
+      newStatus: newState?.name,
+      timestamp: new Date().toISOString(),
+      responsibleId: userId,
     });
 
     // Emitir evento real-time

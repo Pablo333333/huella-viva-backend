@@ -1,14 +1,14 @@
 export class Comment {
   id: string;
   content: string;
-  ticketId?: string;
-  tramiteId?: string;
+  ticketId: string | null;
+  tramiteId: string | null;
   userId: string;
   createdAt: Date;
 
   // Campos adicionales para la vista
   user?: {
-    name?: string;
+    name: string | null;
     email: string;
   };
 

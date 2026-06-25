@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request, UseInterceptors, UploadedFile, Query } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/roles.guard';
 import { Roles } from '../../infrastructure/auth/roles.decorator';
@@ -40,7 +40,7 @@ export class TramitesController {
 
   @Post()
   @Roles(Role.ADMIN, Role.SUPERVISOR)
-  create(@Request() req, @Body() createTramiteDto: CreateTramiteDto) {
+  create(@Request() req: any, @Body() createTramiteDto: CreateTramiteDto) {
     return this.createTramiteUseCase.execute(req.user.userId, createTramiteDto);
   }
 
@@ -50,7 +50,7 @@ export class TramitesController {
   }
 
   @Get('my')
-  findMy(@Request() req) {
+  findMy(@Request() req: any) {
     return this.tramiteRepository.findByUser(req.user.userId);
   }
 
@@ -62,12 +62,16 @@ export class TramitesController {
   @Patch(':id')
   @Roles(Role.ADMIN, Role.SUPERVISOR)
   update(@Param('id') id: string, @Body() updateTramiteDto: UpdateTramiteDto) {
-    return this.tramiteRepository.update(id, updateTramiteDto);
+    const data = {
+      ...updateTramiteDto,
+      fechaLimite: updateTramiteDto.fechaLimite ? new Date(updateTramiteDto.fechaLimite) : undefined,
+    };
+    return this.tramiteRepository.update(id, data as any);
   }
 
   @Patch(':id/status')
   @Roles(Role.ADMIN, Role.SUPERVISOR)
-  changeStatus(@Param('id') id: string, @Body('newStateId') newStateId: string, @Request() req) {
+  changeStatus(@Param('id') id: string, @Body('newStateId') newStateId: string, @Request() req: any) {
     return this.changeTramiteStateUseCase.execute(id, newStateId, req.user.userId);
   }
 
@@ -78,7 +82,7 @@ export class TramitesController {
   }
 
   @Post(':id/comments')
-  createComment(@Param('id') id: string, @Body('content') content: string, @Request() req) {
+  createComment(@Param('id') id: string, @Body('content') content: string, @Request() req: any) {
     return this.createCommentUseCase.execute({
       content,
       userId: req.user.userId,
@@ -95,7 +99,7 @@ export class TramitesController {
   @UseInterceptors(FileInterceptor('file', {
     storage: diskStorage({
       destination: './uploads',
-      filename: (req, file, cb) => {
+      filename: (req: any, file: any, cb: any) => {
         const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
         return cb(null, `${randomName}${extname(file.originalname)}`);
       }
@@ -104,7 +108,7 @@ export class TramitesController {
   uploadFile(
     @Param('id') id: string,
     @UploadedFile() file: Express.Multer.File,
-    @Request() req,
+    @Request() req: any,
   ) {
     return this.uploadDocumentUseCase.execute({
       name: file.originalname,
@@ -124,7 +128,7 @@ export class TramitesController {
   @UseInterceptors(FileInterceptor('file', {
     storage: diskStorage({
       destination: './uploads',
-      filename: (req, file, cb) => {
+      filename: (req: any, file: any, cb: any) => {
         const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
         return cb(null, `${randomName}${extname(file.originalname)}`);
       }
