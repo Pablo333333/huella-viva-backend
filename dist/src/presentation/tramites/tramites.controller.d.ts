@@ -42,6 +42,7 @@ export declare class TramitesController {
         prioridad: "URGENTE" | "MEDIA" | "BAJA";
         responsableSugerido?: string;
         resumen: string;
+        titulo?: string;
         error?: undefined;
     }>;
     remove(id: string): Promise<void>;

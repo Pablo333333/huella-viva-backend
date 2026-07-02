@@ -12,53 +12,33 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PrismaDocumentRepository = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
-const document_entity_1 = require("../../domain/entities/document.entity");
 let PrismaDocumentRepository = class PrismaDocumentRepository {
     prisma;
     constructor(prisma) {
         this.prisma = prisma;
     }
-    async create(document) {
-        const created = await this.prisma.document.create({
+    async create(data) {
+        const document = await this.prisma.document.create({
             data: {
-                name: document.name,
-                url: document.url,
-                type: document.type,
-                userId: document.userId,
-                ticketId: document.ticketId,
-                tramiteId: document.tramiteId,
+                name: data.name,
+                url: data.url,
+                type: data.type,
+                userId: data.userId,
+                ticketId: data.ticketId,
+                version: data.version,
+                isLatest: data.isLatest,
             },
         });
-        return new document_entity_1.Document(created);
-    }
-    async findById(id) {
-        const doc = await this.prisma.document.findUnique({
-            where: { id },
-        });
-        return doc ? new document_entity_1.Document(doc) : null;
+        return document;
     }
     async findByTicketId(ticketId) {
-        const docs = await this.prisma.document.findMany({
+        return this.prisma.document.findMany({
             where: { ticketId },
             orderBy: { createdAt: 'desc' },
         });
-        return docs.map((d) => new document_entity_1.Document(d));
     }
-    async findByTramiteId(tramiteId) {
-        const docs = await this.prisma.document.findMany({
-            where: { tramiteId },
-            orderBy: { createdAt: 'desc' },
-        });
-        return docs.map((d) => new document_entity_1.Document(d));
-    }
-    async updateExtractedText(id, text) {
-        await this.prisma.document.update({
-            where: { id },
-            data: { extractedText: text },
-        });
-    }
-    async delete(id) {
-        await this.prisma.document.delete({
+    async findById(id) {
+        return this.prisma.document.findUnique({
             where: { id },
         });
     }

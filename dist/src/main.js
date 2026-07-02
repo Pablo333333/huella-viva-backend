@@ -50,7 +50,7 @@ async function bootstrap() {
     }
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
     app.enableCors({
-        origin: process.env.FRONTEND_URL ?? 'http://localhost:3001',
+        origin: '*',
         methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
         credentials: true,
     });
@@ -60,7 +60,9 @@ async function bootstrap() {
         transform: true,
     }));
     app.use('/uploads', express.static((0, path_1.join)(__dirname, '..', 'uploads')));
-    await app.listen(process.env.PORT ?? 3000);
+    const port = process.env.PORT ?? 4000;
+    await app.listen(port, '0.0.0.0');
+    logger.log(`Application is running on: http://0.0.0.0:${port}`);
 }
 bootstrap();
 //# sourceMappingURL=main.js.map

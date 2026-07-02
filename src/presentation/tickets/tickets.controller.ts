@@ -22,6 +22,8 @@ import { ITicketRepository } from '../../domain/repositories/ticket.repository.i
 import { ITicketHistoryRepository } from '../../domain/repositories/ticket-history.repository.interface';
 import { Inject } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { OcrService } from '../../infrastructure/ocr/ocr.service';
+import { PredictiveService } from '../../infrastructure/predictive/predictive.service';
 
 @Controller('tickets')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -36,6 +38,8 @@ export class TicketsController {
     private readonly generateDocumentUseCase: GenerateDocumentUseCase,
     private readonly summarizeTicketConversationUseCase: SummarizeTicketConversationUseCase,
     private readonly prisma: PrismaService,
+    private readonly ocrService: OcrService,
+    private readonly predictiveService: PredictiveService,
     @Inject(ITicketRepository)
     private readonly ticketRepository: ITicketRepository,
     @Inject(ITicketHistoryRepository)
@@ -103,7 +107,6 @@ export class TicketsController {
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() user: { userId: string },
   ) {
-    // Lógica de versionado: buscar si ya existe un documento con el mismo nombre para este ticket
     const existingDoc = await this.prisma.document.findFirst({
       where: {
         ticketId: id,
@@ -115,7 +118,6 @@ export class TicketsController {
     let version = 1;
     if (existingDoc) {
       version = existingDoc.version + 1;
-      // Marcar la versión anterior como no actual
       await this.prisma.document.update({
         where: { id: existingDoc.id },
         data: { isLatest: false },
@@ -173,5 +175,23 @@ export class TicketsController {
     });
 
     res.end(buffer);
+  }
+
+  @Post('analyze-image')
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: './uploads',
+      filename: (req: any, file: any, cb: any) => {
+        const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
+        return cb(null, `${randomName}${extname(file.originalname)}`);
+      }
+    })
+  }))
+  async analyzeImage(@UploadedFile() file: Express.Multer.File) {
+    const text = await this.ocrService.extractText(file.path);
+    if (!text) return { error: 'No se pudo extraer texto de la imagen' };
+    
+    const suggestions = await this.predictiveService.analyzeDocumentText(text);
+    return { ...suggestions, extractedText: text };
   }
 }

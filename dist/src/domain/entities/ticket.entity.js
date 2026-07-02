@@ -2,6 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Ticket = void 0;
 class Ticket {
+    constructor(partial) {
+        Object.assign(this, partial);
+    }
     id;
     title;
     description;
@@ -14,12 +17,12 @@ class Ticket {
     isArchived;
     createdAt;
     updatedAt;
-    categoryName;
-    statusName;
     documents;
-    constructor(props) {
-        Object.assign(this, props);
-    }
+    history;
+    comments;
+    statusName;
+    categoryName;
+    userName;
 }
 exports.Ticket = Ticket;
 //# sourceMappingURL=ticket.entity.js.map

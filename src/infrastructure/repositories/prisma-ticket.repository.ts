@@ -39,7 +39,7 @@ export class PrismaTicketRepository implements ITicketRepository {
       ...ticket,
       categoryName: ticket.category.name,
       statusName: ticket.status.name,
-    });
+    } as any);
   }
 
   async findAll(filters?: { categoryId?: string; workflowStateId?: string; q?: string; includeArchived?: boolean }): Promise<Ticket[]> {
@@ -79,7 +79,7 @@ export class PrismaTicketRepository implements ITicketRepository {
       categoryName: t.category.name,
       statusName: t.status.name,
       documents: t.documents,
-    }));
+    } as any));
   }
 
   async getStats(): Promise<any> {

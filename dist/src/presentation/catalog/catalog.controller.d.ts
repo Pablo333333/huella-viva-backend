@@ -16,4 +16,10 @@ export declare class CatalogController {
         updatedAt: Date;
         description: string | null;
     }[]>;
+    getUsers(): Promise<{
+        id: string;
+        email: string;
+        name: string | null;
+        role: import("@prisma/client").$Enums.Role;
+    }[]>;
 }

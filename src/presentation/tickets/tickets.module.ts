@@ -20,9 +20,10 @@ import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { AiModule } from '../../infrastructure/ai/ai.module';
 import { OcrModule } from '../../infrastructure/ocr/ocr.module';
 import { AuditModule } from '../../infrastructure/audit/audit.module';
+import { PredictiveModule } from '../../infrastructure/predictive/predictive.module';
 
 @Module({
-  imports: [AiModule, OcrModule, AuditModule],
+  imports: [AiModule, OcrModule, AuditModule, PredictiveModule],
   controllers: [TicketsController],
   providers: [
     PrismaService,

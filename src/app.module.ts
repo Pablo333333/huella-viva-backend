@@ -4,7 +4,6 @@ import { AppService } from './app.service';
 import { TicketsModule } from './presentation/tickets/tickets.module';
 import { AuthModule } from './presentation/auth/auth.module';
 import { CatalogModule } from './presentation/catalog/catalog.module';
-import { TramitesModule } from './presentation/tramites/tramites.module';
 import { AuditPresentationModule } from './presentation/audit/audit.module';
 import { SocketModule } from './infrastructure/socket/socket.module';
 import { NotificationModule } from './infrastructure/notifications/notification.module';
@@ -18,7 +17,6 @@ import { ConfigModule } from '@nestjs/config';
     AuthModule, 
     TicketsModule, 
     CatalogModule, 
-    TramitesModule, 
     AuditPresentationModule, 
     SocketModule,
     NotificationModule

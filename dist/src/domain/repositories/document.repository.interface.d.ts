@@ -1,10 +1,7 @@
 import { Document } from '../entities/document.entity';
 export interface IDocumentRepository {
-    create(document: Document): Promise<Document>;
-    findById(id: string): Promise<Document | null>;
+    create(data: Partial<Document>): Promise<Document>;
     findByTicketId(ticketId: string): Promise<Document[]>;
-    findByTramiteId(tramiteId: string): Promise<Document[]>;
-    updateExtractedText(id: string, text: string): Promise<void>;
-    delete(id: string): Promise<void>;
+    findById(id: string): Promise<Document | null>;
 }
 export declare const IDocumentRepository: unique symbol;

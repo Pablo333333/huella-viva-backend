@@ -1,62 +1,37 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
 import { IDocumentRepository } from '../../domain/repositories/document.repository.interface';
 import { Document } from '../../domain/entities/document.entity';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class PrismaDocumentRepository implements IDocumentRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(document: Document): Promise<Document> {
-    const created = await this.prisma.document.create({
+  async create(data: Partial<Document>): Promise<Document> {
+    const document = await this.prisma.document.create({
       data: {
-        name: document.name,
-        url: document.url,
-        type: document.type,
-        userId: document.userId,
-        ticketId: document.ticketId,
-        tramiteId: document.tramiteId,
+        name: data.name!,
+        url: data.url!,
+        type: data.type,
+        userId: data.userId!,
+        ticketId: data.ticketId,
+        version: data.version,
+        isLatest: data.isLatest,
       },
     });
 
-    return new Document(created);
-  }
-
-  async findById(id: string): Promise<Document | null> {
-    const doc = await this.prisma.document.findUnique({
-      where: { id },
-    });
-
-    return doc ? new Document(doc) : null;
+    return document;
   }
 
   async findByTicketId(ticketId: string): Promise<Document[]> {
-    const docs = await this.prisma.document.findMany({
+    return this.prisma.document.findMany({
       where: { ticketId },
       orderBy: { createdAt: 'desc' },
     });
-
-    return docs.map((d) => new Document(d));
   }
 
-  async findByTramiteId(tramiteId: string): Promise<Document[]> {
-    const docs = await this.prisma.document.findMany({
-      where: { tramiteId },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    return docs.map((d) => new Document(d));
-  }
-
-  async updateExtractedText(id: string, text: string): Promise<void> {
-    await this.prisma.document.update({
-      where: { id },
-      data: { extractedText: text },
-    });
-  }
-
-  async delete(id: string): Promise<void> {
-    await this.prisma.document.delete({
+  async findById(id: string): Promise<Document | null> {
+    return this.prisma.document.findUnique({
       where: { id },
     });
   }

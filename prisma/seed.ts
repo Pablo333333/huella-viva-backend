@@ -14,23 +14,55 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  console.log('Seeding database...');
+  console.log('--- Iniciando Limpieza de Base de Datos ---');
 
-  // Usuarios de prueba
-  const adminPassword = await bcrypt.hash('1234', 10);
-  const adminUser = await prisma.user.upsert({
-    where: { email: 'admin@test.com' },
-    update: {},
-    create: {
+  // Borrar datos en orden para evitar conflictos de llaves foráneas
+  await prisma.comment.deleteMany({});
+  await prisma.document.deleteMany({});
+  await prisma.ticketHistory.deleteMany({});
+  await prisma.auditLog.deleteMany({});
+  await prisma.ticket.deleteMany({});
+  
+  // Si existen tablas de trámites (según el esquema actual), las limpiamos también
+  try {
+    // @ts-ignore - En caso de que se hayan eliminado del cliente pero sigan en DB
+    await prisma.tramiteHistory?.deleteMany({});
+    // @ts-ignore
+    await prisma.tramite?.deleteMany({});
+  } catch (e) {
+    console.log('Tablas de trámites no encontradas o ya eliminadas.');
+  }
+
+  await prisma.workflowState.deleteMany({});
+  await prisma.category.deleteMany({});
+  await prisma.user.deleteMany({});
+
+  console.log('--- Base de Datos Limpia ---');
+
+  // 1. Crear Usuarios de Prueba
+  const password = await bcrypt.hash('1234', 10);
+  
+  const adminUser = await prisma.user.create({
+    data: {
       email: 'admin@test.com',
-      password: adminPassword,
-      name: 'Administrador de Prueba',
+      password,
+      name: 'Administrador Sistema',
       role: 'ADMIN',
     },
   });
-  console.log(`User created/verified: ${adminUser.email}`);
 
-  // Workflow States
+  const operatorUser = await prisma.user.create({
+    data: {
+      email: 'operador@test.com',
+      password,
+      name: 'Operador de Campo',
+      role: 'SUPERVISOR',
+    },
+  });
+
+  console.log('Usuarios creados:', { admin: adminUser.email, operator: operatorUser.email });
+
+  // 2. Crear Estados de Workflow
   const states = [
     { name: 'NUEVO', description: 'Ticket recién creado' },
     { name: 'EN_PROCESO', description: 'Ticket siendo atendido' },
@@ -39,34 +71,28 @@ async function main() {
     { name: 'CERRADO', description: 'Ticket finalizado y archivado' },
   ];
 
-  for (const state of states) {
-    await prisma.workflowState.upsert({
-      where: { name: state.name },
-      update: {},
-      create: state,
-    });
-  }
+  const createdStates = await Promise.all(
+    states.map(state => prisma.workflowState.create({ data: state }))
+  );
+  
+  const stateMap = createdStates.reduce((acc, s) => ({ ...acc, [s.name]: s.id }), {} as Record<string, string>);
+  console.log('Estados de workflow creados.');
 
-  // Categories
+  // 3. Crear Categorías
   const categories = [
     { name: 'SOPORTE', description: 'Consultas técnicas y ayuda' },
     { name: 'OBRA', description: 'Gestión de proyectos en campo' },
-    { name: 'DOCUMENTACIÓN', description: 'Trámites y archivos legales' },
+    { name: 'DOCUMENTACIÓN', description: 'Trámites y archivos legales (Cartas, Oficios)' },
   ];
 
-  for (const category of categories) {
-    await prisma.category.upsert({
-      where: { name: category.name },
-      update: {},
-      create: category,
-    });
-  }
+  const createdCategories = await Promise.all(
+    categories.map(cat => prisma.category.create({ data: cat }))
+  );
 
-  // Tickets de prueba
-  console.log('Creating sample tickets...');
-  const allStates = await prisma.workflowState.findMany();
-  const allCategories = await prisma.category.findMany();
+  const categoryMap = createdCategories.reduce((acc, c) => ({ ...acc, [c.name]: c.id }), {} as Record<string, string>);
+  console.log('Categorías creadas.');
 
+  // 4. Crear Tickets de Prueba (Sin IDs manuales)
   const sampleTickets = [
     {
       title: 'Reparación de luminaria en Sector A',
@@ -81,10 +107,19 @@ async function main() {
       stateName: 'EN_PROCESO',
       categoryName: 'OBRA',
       priority: 'MEDIA',
+      latitude: -12.046374,
+      longitude: -77.042793,
     },
     {
-      title: 'Actualización de planos estructurales',
-      description: 'Subir la última version de los planos aprobados por el municipio.',
+      title: 'Oficio Nro 124-2024: Solicitud de Materiales',
+      description: 'Documento formal para la adquisición de cemento y agregados.',
+      stateName: 'NUEVO',
+      categoryName: 'DOCUMENTACIÓN',
+      priority: 'MEDIA',
+    },
+    {
+      title: 'Carta de Aceptación de Obra',
+      description: 'Confirmación de recepción de los trabajos realizados en el Sector B.',
       stateName: 'COMPLETADO',
       categoryName: 'DOCUMENTACIÓN',
       priority: 'BAJA',
@@ -96,64 +131,40 @@ async function main() {
       categoryName: 'SOPORTE',
       priority: 'MEDIA',
     },
-    {
-      title: 'Auditoría de seguridad anual',
-      description: 'Revisión de protocolos de seguridad en toda la planta.',
-      stateName: 'CERRADO',
-      categoryName: 'DOCUMENTACIÓN',
-      priority: 'MEDIA',
-    },
   ];
 
   for (const t of sampleTickets) {
-    const state = allStates.find(s => s.name === t.stateName);
-    const category = allCategories.find(c => c.name === t.categoryName);
+    const ticket = await prisma.ticket.create({
+      data: {
+        title: t.title,
+        description: t.description,
+        workflowStateId: stateMap[t.stateName],
+        categoryId: categoryMap[t.categoryName],
+        userId: operatorUser.id,
+        priority: t.priority as any,
+        latitude: t.latitude,
+        longitude: t.longitude,
+      },
+    });
 
-    if (state && category) {
-      const ticketId = `sample-${t.title.toLowerCase().replace(/\s+/g, '-')}`;
-      await prisma.ticket.upsert({
-        where: { 
-          id: ticketId 
-        },
-        update: {},
-        create: {
-          id: ticketId,
-          title: t.title,
-          description: t.description,
-          workflowStateId: state.id,
-          categoryId: category.id,
-          userId: adminUser.id,
-          priority: t.priority as any,
-        },
-      });
+    // Crear un comentario inicial para cada ticket
+    await prisma.comment.create({
+      data: {
+        content: `Ticket creado automáticamente por el sistema para la categoría ${t.categoryName}.`,
+        userId: adminUser.id,
+        ticketId: ticket.id,
+      },
+    });
 
-      // Crear documentos de prueba para algunos tickets
-      if (t.stateName === 'COMPLETADO' || t.stateName === 'EN_PROCESO') {
-        console.log(`Creating sample document for ticket: ${t.title}`);
-        await prisma.document.upsert({
-          where: { id: `doc-${ticketId}` },
-          update: {},
-          create: {
-            id: `doc-${ticketId}`,
-            name: `Documento_${t.categoryName.toLowerCase()}.pdf`,
-            url: '/uploads/sample.pdf',
-            type: 'application/pdf',
-            userId: adminUser.id,
-            ticketId: ticketId,
-            version: 1,
-            isLatest: true,
-          },
-        });
-      }
-    }
+    console.log(`Ticket creado: ${ticket.title} (ID: ${ticket.id})`);
   }
 
-  console.log('Seed completed successfully.');
+  console.log('--- Seed completado con éxito ---');
 }
 
 main()
   .catch((e) => {
-    console.error(e);
+    console.error('Error durante el seed:', e);
     process.exit(1);
   })
   .finally(async () => {

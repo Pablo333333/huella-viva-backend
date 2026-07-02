@@ -15,7 +15,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateCommentUseCase = void 0;
 const common_1 = require("@nestjs/common");
 const comment_repository_interface_1 = require("../../domain/repositories/comment.repository.interface");
-const comment_entity_1 = require("../../domain/entities/comment.entity");
 const socket_gateway_1 = require("../../infrastructure/socket/socket.gateway");
 let CreateCommentUseCase = class CreateCommentUseCase {
     commentRepository;
@@ -25,18 +24,13 @@ let CreateCommentUseCase = class CreateCommentUseCase {
         this.socketGateway = socketGateway;
     }
     async execute(data) {
-        const comment = new comment_entity_1.Comment({
+        const comment = await this.commentRepository.create({
             content: data.content,
             userId: data.userId,
             ticketId: data.ticketId,
-            tramiteId: data.tramiteId,
         });
-        const createdComment = await this.commentRepository.create(comment);
-        const roomId = data.ticketId || data.tramiteId;
-        if (roomId) {
-            this.socketGateway.emitToRoom(roomId, 'messageReceived', createdComment);
-        }
-        return createdComment;
+        this.socketGateway.server.to(data.ticketId).emit('messageReceived', comment);
+        return comment;
     }
 };
 exports.CreateCommentUseCase = CreateCommentUseCase;

@@ -8,7 +8,6 @@ export declare class CreateCommentUseCase {
     execute(data: {
         content: string;
         userId: string;
-        ticketId?: string;
-        tramiteId?: string;
+        ticketId: string;
     }): Promise<Comment>;
 }

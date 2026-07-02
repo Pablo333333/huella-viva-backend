@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { ICommentRepository } from '../../domain/repositories/comment.repository.interface';
 import { Comment } from '../../domain/entities/comment.entity';
 import { SocketGateway } from '../../infrastructure/socket/socket.gateway';
@@ -11,22 +11,16 @@ export class CreateCommentUseCase {
     private readonly socketGateway: SocketGateway,
   ) {}
 
-  async execute(data: { content: string; userId: string; ticketId?: string; tramiteId?: string }): Promise<Comment> {
-    const comment = new Comment({
+  async execute(data: { content: string; userId: string; ticketId: string }): Promise<Comment> {
+    const comment = await this.commentRepository.create({
       content: data.content,
       userId: data.userId,
       ticketId: data.ticketId,
-      tramiteId: data.tramiteId,
     });
 
-    const createdComment = await this.commentRepository.create(comment);
+    // Notificar vía Socket.io
+    this.socketGateway.server.to(data.ticketId).emit('messageReceived', comment);
 
-    // Emitir evento real-time
-    const roomId = data.ticketId || data.tramiteId;
-    if (roomId) {
-      this.socketGateway.emitToRoom(roomId, 'messageReceived', createdComment);
-    }
-
-    return createdComment;
+    return comment;
   }
 }

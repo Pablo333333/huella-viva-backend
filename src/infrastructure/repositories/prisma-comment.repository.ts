@@ -1,31 +1,33 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
 import { ICommentRepository } from '../../domain/repositories/comment.repository.interface';
 import { Comment } from '../../domain/entities/comment.entity';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class PrismaCommentRepository implements ICommentRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(comment: Comment): Promise<Comment> {
-    const created = await this.prisma.comment.create({
+  async create(data: Partial<Comment>): Promise<Comment> {
+    const comment = await this.prisma.comment.create({
       data: {
-        content: comment.content,
-        ticketId: comment.ticketId,
-        tramiteId: comment.tramiteId,
-        userId: comment.userId,
+        content: data.content!,
+        userId: data.userId!,
+        ticketId: data.ticketId,
       },
       include: {
         user: {
           select: {
             name: true,
             email: true,
-          },
-        },
-      },
+          }
+        }
+      }
     });
 
-    return new Comment(created);
+    return {
+      ...comment,
+      user: comment.user as { name: string; email: string },
+    };
   }
 
   async findByTicketId(ticketId: string): Promise<Comment[]> {
@@ -36,29 +38,36 @@ export class PrismaCommentRepository implements ICommentRepository {
           select: {
             name: true,
             email: true,
-          },
-        },
+          }
+        }
       },
       orderBy: { createdAt: 'asc' },
     });
 
-    return comments.map((c) => new Comment(c));
+    return comments.map(comment => ({
+      ...comment,
+      user: comment.user as { name: string; email: string },
+    }));
   }
 
-  async findByTramiteId(tramiteId: string): Promise<Comment[]> {
-    const comments = await this.prisma.comment.findMany({
-      where: { tramiteId },
+  async findById(id: string): Promise<Comment | null> {
+    const comment = await this.prisma.comment.findUnique({
+      where: { id },
       include: {
         user: {
           select: {
             name: true,
             email: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'asc' },
+          }
+        }
+      }
     });
 
-    return comments.map((c) => new Comment(c));
+    if (!comment) return null;
+
+    return {
+      ...comment,
+      user: comment.user as { name: string; email: string },
+    };
   }
 }

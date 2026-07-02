@@ -13,7 +13,6 @@ const app_service_1 = require("./app.service");
 const tickets_module_1 = require("./presentation/tickets/tickets.module");
 const auth_module_1 = require("./presentation/auth/auth.module");
 const catalog_module_1 = require("./presentation/catalog/catalog.module");
-const tramites_module_1 = require("./presentation/tramites/tramites.module");
 const audit_module_1 = require("./presentation/audit/audit.module");
 const socket_module_1 = require("./infrastructure/socket/socket.module");
 const notification_module_1 = require("./infrastructure/notifications/notification.module");
@@ -30,7 +29,6 @@ exports.AppModule = AppModule = __decorate([
             auth_module_1.AuthModule,
             tickets_module_1.TicketsModule,
             catalog_module_1.CatalogModule,
-            tramites_module_1.TramitesModule,
             audit_module_1.AuditPresentationModule,
             socket_module_1.SocketModule,
             notification_module_1.NotificationModule

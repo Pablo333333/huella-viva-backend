@@ -1,18 +1,15 @@
 export class Comment {
+  constructor(partial: Partial<Comment>) {
+    Object.assign(this, partial);
+  }
+
   id: string;
   content: string;
   ticketId: string | null;
-  tramiteId: string | null;
   userId: string;
   createdAt: Date;
-
-  // Campos adicionales para la vista
   user?: {
-    name: string | null;
+    name: string;
     email: string;
   };
-
-  constructor(props: Partial<Comment>) {
-    Object.assign(this, props);
-  }
 }

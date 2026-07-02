@@ -12,6 +12,8 @@ import { ChangeTicketStatusDto } from '../../application/dtos/change-ticket-stat
 import { ITicketRepository } from '../../domain/repositories/ticket.repository.interface';
 import { ITicketHistoryRepository } from '../../domain/repositories/ticket-history.repository.interface';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { OcrService } from '../../infrastructure/ocr/ocr.service';
+import { PredictiveService } from '../../infrastructure/predictive/predictive.service';
 export declare class TicketsController {
     private readonly createTicketUseCase;
     private readonly changeTicketStateUseCase;
@@ -22,9 +24,11 @@ export declare class TicketsController {
     private readonly generateDocumentUseCase;
     private readonly summarizeTicketConversationUseCase;
     private readonly prisma;
+    private readonly ocrService;
+    private readonly predictiveService;
     private readonly ticketRepository;
     private readonly ticketHistoryRepository;
-    constructor(createTicketUseCase: CreateTicketUseCase, changeTicketStateUseCase: ChangeTicketStateUseCase, uploadDocumentUseCase: UploadDocumentUseCase, getTicketDocumentsUseCase: GetTicketDocumentsUseCase, createCommentUseCase: CreateCommentUseCase, getTicketCommentsUseCase: GetTicketCommentsUseCase, generateDocumentUseCase: GenerateDocumentUseCase, summarizeTicketConversationUseCase: SummarizeTicketConversationUseCase, prisma: PrismaService, ticketRepository: ITicketRepository, ticketHistoryRepository: ITicketHistoryRepository);
+    constructor(createTicketUseCase: CreateTicketUseCase, changeTicketStateUseCase: ChangeTicketStateUseCase, uploadDocumentUseCase: UploadDocumentUseCase, getTicketDocumentsUseCase: GetTicketDocumentsUseCase, createCommentUseCase: CreateCommentUseCase, getTicketCommentsUseCase: GetTicketCommentsUseCase, generateDocumentUseCase: GenerateDocumentUseCase, summarizeTicketConversationUseCase: SummarizeTicketConversationUseCase, prisma: PrismaService, ocrService: OcrService, predictiveService: PredictiveService, ticketRepository: ITicketRepository, ticketHistoryRepository: ITicketHistoryRepository);
     create(createTicketDto: CreateTicketDto, user: {
         userId: string;
     }): Promise<import("../../domain/entities/ticket.entity").Ticket>;
@@ -47,4 +51,15 @@ export declare class TicketsController {
         summary: string;
     }>;
     generatePdf(id: string, res: Response): Promise<void>;
+    analyzeImage(file: Express.Multer.File): Promise<{
+        error: string;
+    } | {
+        extractedText: string;
+        tipo: string;
+        prioridad: "URGENTE" | "MEDIA" | "BAJA";
+        responsableSugerido?: string;
+        resumen: string;
+        titulo?: string;
+        error?: undefined;
+    }>;
 }

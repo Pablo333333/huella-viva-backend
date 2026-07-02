@@ -12,30 +12,31 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PrismaCommentRepository = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
-const comment_entity_1 = require("../../domain/entities/comment.entity");
 let PrismaCommentRepository = class PrismaCommentRepository {
     prisma;
     constructor(prisma) {
         this.prisma = prisma;
     }
-    async create(comment) {
-        const created = await this.prisma.comment.create({
+    async create(data) {
+        const comment = await this.prisma.comment.create({
             data: {
-                content: comment.content,
-                ticketId: comment.ticketId,
-                tramiteId: comment.tramiteId,
-                userId: comment.userId,
+                content: data.content,
+                userId: data.userId,
+                ticketId: data.ticketId,
             },
             include: {
                 user: {
                     select: {
                         name: true,
                         email: true,
-                    },
-                },
-            },
+                    }
+                }
+            }
         });
-        return new comment_entity_1.Comment(created);
+        return {
+            ...comment,
+            user: comment.user,
+        };
     }
     async findByTicketId(ticketId) {
         const comments = await this.prisma.comment.findMany({
@@ -45,27 +46,34 @@ let PrismaCommentRepository = class PrismaCommentRepository {
                     select: {
                         name: true,
                         email: true,
-                    },
-                },
+                    }
+                }
             },
             orderBy: { createdAt: 'asc' },
         });
-        return comments.map((c) => new comment_entity_1.Comment(c));
+        return comments.map(comment => ({
+            ...comment,
+            user: comment.user,
+        }));
     }
-    async findByTramiteId(tramiteId) {
-        const comments = await this.prisma.comment.findMany({
-            where: { tramiteId },
+    async findById(id) {
+        const comment = await this.prisma.comment.findUnique({
+            where: { id },
             include: {
                 user: {
                     select: {
                         name: true,
                         email: true,
-                    },
-                },
-            },
-            orderBy: { createdAt: 'asc' },
+                    }
+                }
+            }
         });
-        return comments.map((c) => new comment_entity_1.Comment(c));
+        if (!comment)
+            return null;
+        return {
+            ...comment,
+            user: comment.user,
+        };
     }
 };
 exports.PrismaCommentRepository = PrismaCommentRepository;

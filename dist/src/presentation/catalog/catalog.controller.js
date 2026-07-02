@@ -27,6 +27,17 @@ let CatalogController = class CatalogController {
             orderBy: { name: 'asc' },
         });
     }
+    async getUsers() {
+        return this.prisma.user.findMany({
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+            },
+            orderBy: { name: 'asc' },
+        });
+    }
 };
 exports.CatalogController = CatalogController;
 __decorate([
@@ -41,6 +52,12 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], CatalogController.prototype, "getWorkflowStates", null);
+__decorate([
+    (0, common_1.Get)('users'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], CatalogController.prototype, "getUsers", null);
 exports.CatalogController = CatalogController = __decorate([
     (0, common_1.Controller)('catalog'),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService])

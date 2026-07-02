@@ -29,12 +29,13 @@ const prisma_service_1 = require("../../infrastructure/prisma/prisma.service");
 const ai_module_1 = require("../../infrastructure/ai/ai.module");
 const ocr_module_1 = require("../../infrastructure/ocr/ocr.module");
 const audit_module_1 = require("../../infrastructure/audit/audit.module");
+const predictive_module_1 = require("../../infrastructure/predictive/predictive.module");
 let TicketsModule = class TicketsModule {
 };
 exports.TicketsModule = TicketsModule;
 exports.TicketsModule = TicketsModule = __decorate([
     (0, common_1.Module)({
-        imports: [ai_module_1.AiModule, ocr_module_1.OcrModule, audit_module_1.AuditModule],
+        imports: [ai_module_1.AiModule, ocr_module_1.OcrModule, audit_module_1.AuditModule, predictive_module_1.PredictiveModule],
         controllers: [tickets_controller_1.TicketsController],
         providers: [
             prisma_service_1.PrismaService,

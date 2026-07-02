@@ -22,15 +22,16 @@ let PredictiveService = PredictiveService_1 = class PredictiveService {
     async analyzeDocumentText(text) {
         this.logger.log('Analizando texto extraído para sugerencias predictivas...');
         const prompt = `
-      Analiza el siguiente texto extraído de un documento oficial y devuelve un objeto JSON con las siguientes sugerencias para un sistema de gestión de trámites:
+      Analiza el siguiente texto extraído de un documento o reporte de obra y devuelve un objeto JSON con las siguientes sugerencias para un sistema de gestión de tickets:
       
       1. "tipo": Clasifica entre (SOLICITUD, CARTA, OFICIO, INFORME).
       2. "prioridad": Clasifica entre (URGENTE, MEDIA, BAJA).
       3. "responsableSugerido": Identifica si se menciona un nombre de persona o departamento específico al que deba dirigirse.
-      4. "resumen": Un resumen de 15 palabras del propósito del documento.
+      4. "resumen": Un resumen de 15 palabras del propósito o problema reportado.
+      5. "titulo": Un título corto y descriptivo de máximo 6 palabras.
 
       Texto:
-      "${text.substring(0, 2000)}" // Limitamos para no exceder tokens
+      "${text.substring(0, 2000)}"
 
       Responde ÚNICAMENTE con el objeto JSON.
     `;
@@ -48,7 +49,8 @@ let PredictiveService = PredictiveService_1 = class PredictiveService {
             return {
                 tipo: 'SOLICITUD',
                 prioridad: 'MEDIA',
-                resumen: 'No se pudo analizar el documento automáticamente.'
+                resumen: 'No se pudo analizar el documento automáticamente.',
+                titulo: 'Nuevo Ticket (OCR)'
             };
         }
     }
