@@ -18,7 +18,6 @@ import { Role } from '@prisma/client';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ITicketRepository } from '../../domain/repositories/ticket.repository.interface';
 import { ITicketHistoryRepository } from '../../domain/repositories/ticket-history.repository.interface';
-import { Inject } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { OcrService } from '../../infrastructure/ocr/ocr.service';
 import { PredictiveService } from '../../infrastructure/predictive/predictive.service';
