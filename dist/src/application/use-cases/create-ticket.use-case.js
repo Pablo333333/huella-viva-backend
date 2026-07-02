@@ -17,14 +17,17 @@ const ticket_entity_1 = require("../../domain/entities/ticket.entity");
 const ticket_repository_interface_1 = require("../../domain/repositories/ticket.repository.interface");
 const common_1 = require("@nestjs/common");
 const audit_service_1 = require("../../infrastructure/audit/audit.service");
+const upload_document_use_case_1 = require("./upload-document.use-case");
 let CreateTicketUseCase = class CreateTicketUseCase {
     ticketRepository;
     auditService;
-    constructor(ticketRepository, auditService) {
+    uploadDocumentUseCase;
+    constructor(ticketRepository, auditService, uploadDocumentUseCase) {
         this.ticketRepository = ticketRepository;
         this.auditService = auditService;
+        this.uploadDocumentUseCase = uploadDocumentUseCase;
     }
-    async execute(dto, userId) {
+    async execute(dto, userId, file) {
         const ticket = new ticket_entity_1.Ticket({
             title: dto.title,
             description: dto.description,
@@ -35,6 +38,15 @@ let CreateTicketUseCase = class CreateTicketUseCase {
             workflowStateId: dto.workflowStateId,
         });
         const createdTicket = await this.ticketRepository.create(ticket);
+        if (file) {
+            await this.uploadDocumentUseCase.execute({
+                name: file.originalname,
+                url: `/uploads/${file.filename}`,
+                type: file.mimetype,
+                userId: userId,
+                ticketId: createdTicket.id,
+            });
+        }
         await this.auditService.logAction(createdTicket.id, 'TICKET', { ...dto, userId });
         return createdTicket;
     }
@@ -43,6 +55,7 @@ exports.CreateTicketUseCase = CreateTicketUseCase;
 exports.CreateTicketUseCase = CreateTicketUseCase = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, common_1.Inject)(ticket_repository_interface_1.ITicketRepository)),
-    __metadata("design:paramtypes", [Object, audit_service_1.AuditService])
+    __metadata("design:paramtypes", [Object, audit_service_1.AuditService,
+        upload_document_use_case_1.UploadDocumentUseCase])
 ], CreateTicketUseCase);
 //# sourceMappingURL=create-ticket.use-case.js.map

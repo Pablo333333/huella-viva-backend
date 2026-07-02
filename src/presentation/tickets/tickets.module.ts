@@ -21,12 +21,14 @@ import { AiModule } from '../../infrastructure/ai/ai.module';
 import { OcrModule } from '../../infrastructure/ocr/ocr.module';
 import { AuditModule } from '../../infrastructure/audit/audit.module';
 import { PredictiveModule } from '../../infrastructure/predictive/predictive.module';
+import { CloudinaryService } from '../../infrastructure/documents/cloudinary.service';
 
 @Module({
   imports: [AiModule, OcrModule, AuditModule, PredictiveModule],
   controllers: [TicketsController],
   providers: [
     PrismaService,
+    CloudinaryService,
     CreateTicketUseCase,
     ChangeTicketStateUseCase,
     UploadDocumentUseCase,

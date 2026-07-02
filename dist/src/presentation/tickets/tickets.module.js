@@ -30,6 +30,7 @@ const ai_module_1 = require("../../infrastructure/ai/ai.module");
 const ocr_module_1 = require("../../infrastructure/ocr/ocr.module");
 const audit_module_1 = require("../../infrastructure/audit/audit.module");
 const predictive_module_1 = require("../../infrastructure/predictive/predictive.module");
+const cloudinary_service_1 = require("../../infrastructure/documents/cloudinary.service");
 let TicketsModule = class TicketsModule {
 };
 exports.TicketsModule = TicketsModule;
@@ -39,6 +40,7 @@ exports.TicketsModule = TicketsModule = __decorate([
         controllers: [tickets_controller_1.TicketsController],
         providers: [
             prisma_service_1.PrismaService,
+            cloudinary_service_1.CloudinaryService,
             create_ticket_use_case_1.CreateTicketUseCase,
             change_ticket_state_use_case_1.ChangeTicketStateUseCase,
             upload_document_use_case_1.UploadDocumentUseCase,

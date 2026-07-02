@@ -15,8 +15,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.TicketsController = void 0;
 const common_1 = require("@nestjs/common");
 const platform_express_1 = require("@nestjs/platform-express");
-const multer_1 = require("multer");
-const path_1 = require("path");
 const create_ticket_use_case_1 = require("../../application/use-cases/create-ticket.use-case");
 const change_ticket_state_use_case_1 = require("../../application/use-cases/change-ticket-state.use-case");
 const upload_document_use_case_1 = require("../../application/use-cases/upload-document.use-case");
@@ -34,10 +32,10 @@ const client_1 = require("@prisma/client");
 const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
 const ticket_repository_interface_1 = require("../../domain/repositories/ticket.repository.interface");
 const ticket_history_repository_interface_1 = require("../../domain/repositories/ticket-history.repository.interface");
-const common_2 = require("@nestjs/common");
 const prisma_service_1 = require("../../infrastructure/prisma/prisma.service");
 const ocr_service_1 = require("../../infrastructure/ocr/ocr.service");
 const predictive_service_1 = require("../../infrastructure/predictive/predictive.service");
+const cloudinary_service_1 = require("../../infrastructure/documents/cloudinary.service");
 let TicketsController = class TicketsController {
     createTicketUseCase;
     changeTicketStateUseCase;
@@ -50,9 +48,10 @@ let TicketsController = class TicketsController {
     prisma;
     ocrService;
     predictiveService;
+    cloudinaryService;
     ticketRepository;
     ticketHistoryRepository;
-    constructor(createTicketUseCase, changeTicketStateUseCase, uploadDocumentUseCase, getTicketDocumentsUseCase, createCommentUseCase, getTicketCommentsUseCase, generateDocumentUseCase, summarizeTicketConversationUseCase, prisma, ocrService, predictiveService, ticketRepository, ticketHistoryRepository) {
+    constructor(createTicketUseCase, changeTicketStateUseCase, uploadDocumentUseCase, getTicketDocumentsUseCase, createCommentUseCase, getTicketCommentsUseCase, generateDocumentUseCase, summarizeTicketConversationUseCase, prisma, ocrService, predictiveService, cloudinaryService, ticketRepository, ticketHistoryRepository) {
         this.createTicketUseCase = createTicketUseCase;
         this.changeTicketStateUseCase = changeTicketStateUseCase;
         this.uploadDocumentUseCase = uploadDocumentUseCase;
@@ -64,11 +63,21 @@ let TicketsController = class TicketsController {
         this.prisma = prisma;
         this.ocrService = ocrService;
         this.predictiveService = predictiveService;
+        this.cloudinaryService = cloudinaryService;
         this.ticketRepository = ticketRepository;
         this.ticketHistoryRepository = ticketHistoryRepository;
     }
-    async create(createTicketDto, user) {
-        return this.createTicketUseCase.execute(createTicketDto, user.userId);
+    async create(createTicketDto, user, file) {
+        try {
+            if (file) {
+                console.log(`[Cloudinary] Archivo subido exitosamente: ${file.path}`);
+            }
+            return await this.createTicketUseCase.execute(createTicketDto, user.userId, file);
+        }
+        catch (error) {
+            console.error('[Cloudinary Error] Fallo en la subida:', error);
+            throw new common_1.InternalServerErrorException('El servicio de almacenamiento no está disponible');
+        }
     }
     async changeStatus(id, dto, user) {
         return this.changeTicketStateUseCase.execute(id, dto.newStateId, user.userId);
@@ -89,30 +98,37 @@ let TicketsController = class TicketsController {
         return this.ticketHistoryRepository.findByTicketId(id);
     }
     async uploadFile(id, file, user) {
-        const existingDoc = await this.prisma.document.findFirst({
-            where: {
-                ticketId: id,
+        try {
+            console.log(`[Cloudinary] Archivo subido exitosamente: ${file.path}`);
+            const existingDoc = await this.prisma.document.findFirst({
+                where: {
+                    ticketId: id,
+                    name: file.originalname,
+                    isLatest: true,
+                },
+            });
+            let version = 1;
+            if (existingDoc) {
+                version = existingDoc.version + 1;
+                await this.prisma.document.update({
+                    where: { id: existingDoc.id },
+                    data: { isLatest: false },
+                });
+            }
+            return this.uploadDocumentUseCase.execute({
                 name: file.originalname,
+                url: file.path,
+                type: file.mimetype,
+                userId: user.userId,
+                ticketId: id,
+                version,
                 isLatest: true,
-            },
-        });
-        let version = 1;
-        if (existingDoc) {
-            version = existingDoc.version + 1;
-            await this.prisma.document.update({
-                where: { id: existingDoc.id },
-                data: { isLatest: false },
             });
         }
-        return this.uploadDocumentUseCase.execute({
-            name: file.originalname,
-            url: `/uploads/${file.filename}`,
-            type: file.mimetype,
-            userId: user.userId,
-            ticketId: id,
-            version,
-            isLatest: true,
-        });
+        catch (error) {
+            console.error('[Cloudinary Error] Fallo en la subida:', error);
+            throw new common_1.InternalServerErrorException('El servicio de almacenamiento no está disponible');
+        }
     }
     async getDocuments(id) {
         return this.getTicketDocumentsUseCase.execute(id);
@@ -140,21 +156,31 @@ let TicketsController = class TicketsController {
         res.end(buffer);
     }
     async analyzeImage(file) {
-        const text = await this.ocrService.extractText(file.path);
-        if (!text)
-            return { error: 'No se pudo extraer texto de la imagen' };
-        const suggestions = await this.predictiveService.analyzeDocumentText(text);
-        return { ...suggestions, extractedText: text };
+        try {
+            const text = await this.ocrService.extractText(file.path);
+            if (!text)
+                return { error: 'No se pudo extraer texto de la imagen' };
+            const suggestions = await this.predictiveService.analyzeDocumentText(text);
+            return { ...suggestions, extractedText: text };
+        }
+        catch (error) {
+            console.error('[Cloudinary Error] Fallo en la subida:', error);
+            throw new common_1.InternalServerErrorException('El servicio de almacenamiento no está disponible');
+        }
     }
 };
 exports.TicketsController = TicketsController;
 __decorate([
     (0, common_1.Post)(),
     (0, roles_decorator_1.Roles)(client_1.Role.ADMIN, client_1.Role.SUPERVISOR, client_1.Role.OPERARIO),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('audio', {
+        storage: new cloudinary_service_1.CloudinaryService().getStorage('tickets/audio'),
+    })),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __param(2, (0, common_1.UploadedFile)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [create_ticket_dto_1.CreateTicketDto, Object]),
+    __metadata("design:paramtypes", [create_ticket_dto_1.CreateTicketDto, Object, Object]),
     __metadata("design:returntype", Promise)
 ], TicketsController.prototype, "create", null);
 __decorate([
@@ -199,13 +225,7 @@ __decorate([
 __decorate([
     (0, common_1.Post)(':id/documents'),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file', {
-        storage: (0, multer_1.diskStorage)({
-            destination: './uploads',
-            filename: (req, file, cb) => {
-                const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-                return cb(null, `${randomName}${(0, path_1.extname)(file.originalname)}`);
-            }
-        })
+        storage: new cloudinary_service_1.CloudinaryService().getStorage('tickets/documents'),
     })),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.UploadedFile)()),
@@ -256,13 +276,7 @@ __decorate([
 __decorate([
     (0, common_1.Post)('analyze-image'),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file', {
-        storage: (0, multer_1.diskStorage)({
-            destination: './uploads',
-            filename: (req, file, cb) => {
-                const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-                return cb(null, `${randomName}${(0, path_1.extname)(file.originalname)}`);
-            }
-        })
+        storage: new cloudinary_service_1.CloudinaryService().getStorage('temp/ocr'),
     })),
     __param(0, (0, common_1.UploadedFile)()),
     __metadata("design:type", Function),
@@ -272,8 +286,8 @@ __decorate([
 exports.TicketsController = TicketsController = __decorate([
     (0, common_1.Controller)('tickets'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    __param(11, (0, common_2.Inject)(ticket_repository_interface_1.ITicketRepository)),
-    __param(12, (0, common_2.Inject)(ticket_history_repository_interface_1.ITicketHistoryRepository)),
+    __param(12, (0, common_1.Inject)(ticket_repository_interface_1.ITicketRepository)),
+    __param(13, (0, common_1.Inject)(ticket_history_repository_interface_1.ITicketHistoryRepository)),
     __metadata("design:paramtypes", [create_ticket_use_case_1.CreateTicketUseCase,
         change_ticket_state_use_case_1.ChangeTicketStateUseCase,
         upload_document_use_case_1.UploadDocumentUseCase,
@@ -284,6 +298,7 @@ exports.TicketsController = TicketsController = __decorate([
         summarize_ticket_conversation_use_case_1.SummarizeTicketConversationUseCase,
         prisma_service_1.PrismaService,
         ocr_service_1.OcrService,
-        predictive_service_1.PredictiveService, Object, Object])
+        predictive_service_1.PredictiveService,
+        cloudinary_service_1.CloudinaryService, Object, Object])
 ], TicketsController);
 //# sourceMappingURL=tickets.controller.js.map

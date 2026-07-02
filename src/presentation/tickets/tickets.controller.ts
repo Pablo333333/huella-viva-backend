@@ -1,8 +1,6 @@
-import { Controller, Post, Body, UseGuards, Patch, Param, Get, Query, UseInterceptors, UploadedFile, Res } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Patch, Param, Get, Query, UseInterceptors, UploadedFile, Res, Inject, InternalServerErrorException } from '@nestjs/common';
 import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
 import { CreateTicketUseCase } from '../../application/use-cases/create-ticket.use-case';
 import { ChangeTicketStateUseCase } from '../../application/use-cases/change-ticket-state.use-case';
 import { UploadDocumentUseCase } from '../../application/use-cases/upload-document.use-case';
@@ -24,6 +22,7 @@ import { Inject } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { OcrService } from '../../infrastructure/ocr/ocr.service';
 import { PredictiveService } from '../../infrastructure/predictive/predictive.service';
+import { CloudinaryService } from '../../infrastructure/documents/cloudinary.service';
 
 @Controller('tickets')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -40,6 +39,7 @@ export class TicketsController {
     private readonly prisma: PrismaService,
     private readonly ocrService: OcrService,
     private readonly predictiveService: PredictiveService,
+    private readonly cloudinaryService: CloudinaryService,
     @Inject(ITicketRepository)
     private readonly ticketRepository: ITicketRepository,
     @Inject(ITicketHistoryRepository)
@@ -48,11 +48,23 @@ export class TicketsController {
 
   @Post()
   @Roles(Role.ADMIN, Role.SUPERVISOR, Role.OPERARIO)
+  @UseInterceptors(FileInterceptor('audio', {
+    storage: new CloudinaryService().getStorage('tickets/audio'),
+  }))
   async create(
     @Body() createTicketDto: CreateTicketDto,
     @CurrentUser() user: { userId: string },
+    @UploadedFile() file?: Express.Multer.File,
   ) {
-    return this.createTicketUseCase.execute(createTicketDto, user.userId);
+    try {
+      if (file) {
+        console.log(`[Cloudinary] Archivo subido exitosamente: ${file.path}`);
+      }
+      return await this.createTicketUseCase.execute(createTicketDto, user.userId, file);
+    } catch (error) {
+      console.error('[Cloudinary Error] Fallo en la subida:', error);
+      throw new InternalServerErrorException('El servicio de almacenamiento no está disponible');
+    }
   }
 
   @Patch(':id/status')
@@ -94,45 +106,46 @@ export class TicketsController {
 
   @Post(':id/documents')
   @UseInterceptors(FileInterceptor('file', {
-    storage: diskStorage({
-      destination: './uploads',
-      filename: (req: any, file: any, cb: any) => {
-        const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-        return cb(null, `${randomName}${extname(file.originalname)}`);
-      }
-    })
+    storage: new CloudinaryService().getStorage('tickets/documents'),
   }))
   async uploadFile(
     @Param('id') id: string,
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() user: { userId: string },
   ) {
-    const existingDoc = await this.prisma.document.findFirst({
-      where: {
-        ticketId: id,
-        name: file.originalname,
-        isLatest: true,
-      },
-    });
-
-    let version = 1;
-    if (existingDoc) {
-      version = existingDoc.version + 1;
-      await this.prisma.document.update({
-        where: { id: existingDoc.id },
-        data: { isLatest: false },
+    try {
+      console.log(`[Cloudinary] Archivo subido exitosamente: ${file.path}`);
+      
+      const existingDoc = await this.prisma.document.findFirst({
+        where: {
+          ticketId: id,
+          name: file.originalname,
+          isLatest: true,
+        },
       });
-    }
 
-    return this.uploadDocumentUseCase.execute({
-      name: file.originalname,
-      url: `/uploads/${file.filename}`,
-      type: file.mimetype,
-      userId: user.userId,
-      ticketId: id,
-      version,
-      isLatest: true,
-    } as any);
+      let version = 1;
+      if (existingDoc) {
+        version = existingDoc.version + 1;
+        await this.prisma.document.update({
+          where: { id: existingDoc.id },
+          data: { isLatest: false },
+        });
+      }
+
+      return this.uploadDocumentUseCase.execute({
+        name: file.originalname,
+        url: file.path, // En Cloudinary con multer-storage-cloudinary, file.path es la URL
+        type: file.mimetype,
+        userId: user.userId,
+        ticketId: id,
+        version,
+        isLatest: true,
+      } as any);
+    } catch (error) {
+      console.error('[Cloudinary Error] Fallo en la subida:', error);
+      throw new InternalServerErrorException('El servicio de almacenamiento no está disponible');
+    }
   }
 
   @Get(':id/documents')
@@ -179,19 +192,18 @@ export class TicketsController {
 
   @Post('analyze-image')
   @UseInterceptors(FileInterceptor('file', {
-    storage: diskStorage({
-      destination: './uploads',
-      filename: (req: any, file: any, cb: any) => {
-        const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-        return cb(null, `${randomName}${extname(file.originalname)}`);
-      }
-    })
+    storage: new CloudinaryService().getStorage('temp/ocr'),
   }))
   async analyzeImage(@UploadedFile() file: Express.Multer.File) {
-    const text = await this.ocrService.extractText(file.path);
-    if (!text) return { error: 'No se pudo extraer texto de la imagen' };
-    
-    const suggestions = await this.predictiveService.analyzeDocumentText(text);
-    return { ...suggestions, extractedText: text };
+    try {
+      const text = await this.ocrService.extractText(file.path);
+      if (!text) return { error: 'No se pudo extraer texto de la imagen' };
+      
+      const suggestions = await this.predictiveService.analyzeDocumentText(text);
+      return { ...suggestions, extractedText: text };
+    } catch (error) {
+      console.error('[Cloudinary Error] Fallo en la subida:', error);
+      throw new InternalServerErrorException('El servicio de almacenamiento no está disponible');
+    }
   }
 }

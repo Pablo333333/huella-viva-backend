@@ -14,6 +14,7 @@ import { ITicketHistoryRepository } from '../../domain/repositories/ticket-histo
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { OcrService } from '../../infrastructure/ocr/ocr.service';
 import { PredictiveService } from '../../infrastructure/predictive/predictive.service';
+import { CloudinaryService } from '../../infrastructure/documents/cloudinary.service';
 export declare class TicketsController {
     private readonly createTicketUseCase;
     private readonly changeTicketStateUseCase;
@@ -26,12 +27,13 @@ export declare class TicketsController {
     private readonly prisma;
     private readonly ocrService;
     private readonly predictiveService;
+    private readonly cloudinaryService;
     private readonly ticketRepository;
     private readonly ticketHistoryRepository;
-    constructor(createTicketUseCase: CreateTicketUseCase, changeTicketStateUseCase: ChangeTicketStateUseCase, uploadDocumentUseCase: UploadDocumentUseCase, getTicketDocumentsUseCase: GetTicketDocumentsUseCase, createCommentUseCase: CreateCommentUseCase, getTicketCommentsUseCase: GetTicketCommentsUseCase, generateDocumentUseCase: GenerateDocumentUseCase, summarizeTicketConversationUseCase: SummarizeTicketConversationUseCase, prisma: PrismaService, ocrService: OcrService, predictiveService: PredictiveService, ticketRepository: ITicketRepository, ticketHistoryRepository: ITicketHistoryRepository);
+    constructor(createTicketUseCase: CreateTicketUseCase, changeTicketStateUseCase: ChangeTicketStateUseCase, uploadDocumentUseCase: UploadDocumentUseCase, getTicketDocumentsUseCase: GetTicketDocumentsUseCase, createCommentUseCase: CreateCommentUseCase, getTicketCommentsUseCase: GetTicketCommentsUseCase, generateDocumentUseCase: GenerateDocumentUseCase, summarizeTicketConversationUseCase: SummarizeTicketConversationUseCase, prisma: PrismaService, ocrService: OcrService, predictiveService: PredictiveService, cloudinaryService: CloudinaryService, ticketRepository: ITicketRepository, ticketHistoryRepository: ITicketHistoryRepository);
     create(createTicketDto: CreateTicketDto, user: {
         userId: string;
-    }): Promise<import("../../domain/entities/ticket.entity").Ticket>;
+    }, file?: Express.Multer.File): Promise<import("../../domain/entities/ticket.entity").Ticket>;
     changeStatus(id: string, dto: ChangeTicketStatusDto, user: {
         userId: string;
     }): Promise<void>;
