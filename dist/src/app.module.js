@@ -10,9 +10,9 @@ exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
 const app_controller_1 = require("./app.controller");
 const app_service_1 = require("./app.service");
-const tickets_module_1 = require("./presentation/tickets/tickets.module");
+const activities_module_1 = require("./presentation/activities/activities.module");
+const dashboard_module_1 = require("./presentation/dashboard/dashboard.module");
 const auth_module_1 = require("./presentation/auth/auth.module");
-const catalog_module_1 = require("./presentation/catalog/catalog.module");
 const audit_module_1 = require("./presentation/audit/audit.module");
 const socket_module_1 = require("./infrastructure/socket/socket.module");
 const notification_module_1 = require("./infrastructure/notifications/notification.module");
@@ -27,8 +27,8 @@ exports.AppModule = AppModule = __decorate([
             config_1.ConfigModule.forRoot({ isGlobal: true }),
             prisma_module_1.PrismaModule,
             auth_module_1.AuthModule,
-            tickets_module_1.TicketsModule,
-            catalog_module_1.CatalogModule,
+            activities_module_1.ActivitiesModule,
+            dashboard_module_1.DashboardModule,
             audit_module_1.AuditPresentationModule,
             socket_module_1.SocketModule,
             notification_module_1.NotificationModule

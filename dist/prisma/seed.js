@@ -35,136 +35,100 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 const client_1 = require("@prisma/client");
 const bcrypt = __importStar(require("bcrypt"));
-require("dotenv/config");
 const pg_1 = require("pg");
 const adapter_pg_1 = require("@prisma/adapter-pg");
+require("dotenv/config");
 const dbUrl = process.env.DATABASE_URL;
-if (!dbUrl) {
-    throw new Error('DATABASE_URL is not defined in environment variables');
-}
 const pool = new pg_1.Pool({ connectionString: dbUrl });
 const adapter = new adapter_pg_1.PrismaPg(pool);
 const prisma = new client_1.PrismaClient({ adapter });
 async function main() {
-    console.log('--- Iniciando Limpieza de Base de Datos ---');
-    await prisma.comment.deleteMany({});
-    await prisma.document.deleteMany({});
-    await prisma.ticketHistory.deleteMany({});
-    await prisma.auditLog.deleteMany({});
-    await prisma.ticket.deleteMany({});
-    try {
-        await prisma.tramiteHistory?.deleteMany({});
-        await prisma.tramite?.deleteMany({});
-    }
-    catch (e) {
-        console.log('Tablas de trámites no encontradas o ya eliminadas.');
-    }
-    await prisma.workflowState.deleteMany({});
-    await prisma.category.deleteMany({});
-    await prisma.user.deleteMany({});
-    console.log('--- Base de Datos Limpia ---');
-    const password = await bcrypt.hash('1234', 10);
-    const adminUser = await prisma.user.create({
+    console.log('Seed: Iniciando poblamiento de base de datos Huella Viva 360...');
+    await prisma.commitment.deleteMany();
+    await prisma.activity.deleteMany();
+    await prisma.investment.deleteMany();
+    await prisma.project.deleteMany();
+    await prisma.community.deleteMany();
+    await prisma.user.deleteMany();
+    const hashedPassword = await bcrypt.hash('admin123', 10);
+    const admin = await prisma.user.create({
         data: {
-            email: 'admin@test.com',
-            password,
-            name: 'Administrador Sistema',
+            email: 'admin@huellaviva.com',
+            password: hashedPassword,
+            name: 'Administrador Territorial',
             role: 'ADMIN',
         },
     });
-    const operatorUser = await prisma.user.create({
+    const supervisor = await prisma.user.create({
         data: {
-            email: 'operador@test.com',
-            password,
-            name: 'Operador de Campo',
+            email: 'supervisor@huellaviva.com',
+            password: hashedPassword,
+            name: 'Supervisor de Campo',
             role: 'SUPERVISOR',
         },
     });
-    console.log('Usuarios creados:', { admin: adminUser.email, operator: operatorUser.email });
-    const states = [
-        { name: 'NUEVO', description: 'Ticket recién creado' },
-        { name: 'EN_PROCESO', description: 'Ticket siendo atendido' },
-        { name: 'COMPLETADO', description: 'Ticket resuelto con éxito' },
-        { name: 'CANCELADO', description: 'Ticket anulado' },
-        { name: 'CERRADO', description: 'Ticket finalizado y archivado' },
-    ];
-    const createdStates = await Promise.all(states.map(state => prisma.workflowState.create({ data: state })));
-    const stateMap = createdStates.reduce((acc, s) => ({ ...acc, [s.name]: s.id }), {});
-    console.log('Estados de workflow creados.');
-    const categories = [
-        { name: 'SOPORTE', description: 'Consultas técnicas y ayuda' },
-        { name: 'OBRA', description: 'Gestión de proyectos en campo' },
-        { name: 'DOCUMENTACIÓN', description: 'Trámites y archivos legales (Cartas, Oficios)' },
-    ];
-    const createdCategories = await Promise.all(categories.map(cat => prisma.category.create({ data: cat })));
-    const categoryMap = createdCategories.reduce((acc, c) => ({ ...acc, [c.name]: c.id }), {});
-    console.log('Categorías creadas.');
-    const sampleTickets = [
-        {
-            title: 'Reparación de luminaria en Sector A',
-            description: 'La luminaria principal del sector A no enciende desde ayer.',
-            stateName: 'NUEVO',
-            categoryName: 'SOPORTE',
-            priority: 'URGENTE',
+    console.log('Usuarios creados correctamente.');
+    const elRoble = await prisma.community.create({
+        data: {
+            nombre: 'Comunidad El Roble',
+            poblacion: 450,
+            location: 4.6097,
         },
-        {
-            title: 'Fuga de agua en sótano',
-            description: 'Se detectó una pequeña filtración en la tubería de desagüe.',
-            stateName: 'EN_PROCESO',
-            categoryName: 'OBRA',
-            priority: 'MEDIA',
-            latitude: -12.046374,
-            longitude: -77.042793,
+    });
+    const sanJose = await prisma.community.create({
+        data: {
+            nombre: 'San José del Guaviare',
+            poblacion: 1200,
+            location: 2.5678,
         },
-        {
-            title: 'Oficio Nro 124-2024: Solicitud de Materiales',
-            description: 'Documento formal para la adquisición de cemento y agregados.',
-            stateName: 'NUEVO',
-            categoryName: 'DOCUMENTACIÓN',
-            priority: 'MEDIA',
+    });
+    console.log('Comunidades creadas correctamente.');
+    const pozoAgua = await prisma.project.create({
+        data: {
+            nombre: 'Construcción Pozo de Agua',
+            tipo: 'AGUA',
+            presupuesto: 45000,
+            financiador: 'Huella Viva Fund',
+            estado: 'EN_EJECUCION',
+            communityId: elRoble.id,
         },
-        {
-            title: 'Carta de Aceptación de Obra',
-            description: 'Confirmación de recepción de los trabajos realizados en el Sector B.',
-            stateName: 'COMPLETADO',
-            categoryName: 'DOCUMENTACIÓN',
-            priority: 'BAJA',
+    });
+    const escuela = await prisma.project.create({
+        data: {
+            nombre: 'Refacción Escuela Primaria',
+            tipo: 'EDUCACION',
+            presupuesto: 15000,
+            financiador: 'Gobierno Local',
+            estado: 'CULMINADO',
+            communityId: sanJose.id,
         },
-        {
-            title: 'Mantenimiento preventivo de ascensor',
-            description: 'Revisión mensual programada para el ascensor 2.',
-            stateName: 'NUEVO',
-            categoryName: 'SOPORTE',
-            priority: 'MEDIA',
+    });
+    console.log('Proyectos creados correctamente.');
+    const reunion1 = await prisma.activity.create({
+        data: {
+            tipo: 'REUNION',
+            descripcion: 'Reunión inicial para coordinar la entrega de materiales del pozo.',
+            userId: supervisor.id,
+            communityId: elRoble.id,
+            location: 4.6097,
         },
-    ];
-    for (const t of sampleTickets) {
-        const ticket = await prisma.ticket.create({
-            data: {
-                title: t.title,
-                description: t.description,
-                workflowStateId: stateMap[t.stateName],
-                categoryId: categoryMap[t.categoryName],
-                userId: operatorUser.id,
-                priority: t.priority,
-                latitude: t.latitude,
-                longitude: t.longitude,
-            },
-        });
-        await prisma.comment.create({
-            data: {
-                content: `Ticket creado automáticamente por el sistema para la categoría ${t.categoryName}.`,
-                userId: adminUser.id,
-                ticketId: ticket.id,
-            },
-        });
-        console.log(`Ticket creado: ${ticket.title} (ID: ${ticket.id})`);
-    }
-    console.log('--- Seed completado con éxito ---');
+    });
+    console.log('Actividades creadas correctamente.');
+    await prisma.commitment.create({
+        data: {
+            descripcion: 'Entrega de 50 metros de tubería PVC',
+            responsable: 'Supervisor de Campo',
+            estado: 'PROGRAMADO',
+            activityId: reunion1.id,
+            fecha_cumplimiento: new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000),
+        },
+    });
+    console.log('Compromisos creados correctamente.');
+    console.log('Seed finalizado con éxito.');
 }
 main()
     .catch((e) => {
-    console.error('Error durante el seed:', e);
+    console.error(e);
     process.exit(1);
 })
     .finally(async () => {

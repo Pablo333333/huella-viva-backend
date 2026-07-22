@@ -1,170 +1,123 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-import 'dotenv/config';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
+import 'dotenv/config';
 
 const dbUrl = process.env.DATABASE_URL;
-if (!dbUrl) {
-  throw new Error('DATABASE_URL is not defined in environment variables');
-}
-
 const pool = new Pool({ connectionString: dbUrl });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  console.log('--- Iniciando Limpieza de Base de Datos ---');
+  console.log('Seed: Iniciando poblamiento de base de datos Huella Viva 360...');
 
-  // Borrar datos en orden para evitar conflictos de llaves foráneas
-  await prisma.comment.deleteMany({});
-  await prisma.document.deleteMany({});
-  await prisma.ticketHistory.deleteMany({});
-  await prisma.auditLog.deleteMany({});
-  await prisma.ticket.deleteMany({});
-  
-  // Si existen tablas de trámites (según el esquema actual), las limpiamos también
-  try {
-    // @ts-ignore - En caso de que se hayan eliminado del cliente pero sigan en DB
-    await prisma.tramiteHistory?.deleteMany({});
-    // @ts-ignore
-    await prisma.tramite?.deleteMany({});
-  } catch (e) {
-    console.log('Tablas de trámites no encontradas o ya eliminadas.');
-  }
+  // 1. Limpiar datos existentes (Opcional, pero recomendado para seed limpio)
+  // El orden importa por las llaves foráneas
+  await prisma.commitment.deleteMany();
+  await prisma.activity.deleteMany();
+  await prisma.investment.deleteMany();
+  await prisma.project.deleteMany();
+  await prisma.community.deleteMany();
+  await prisma.user.deleteMany();
 
-  await prisma.workflowState.deleteMany({});
-  await prisma.category.deleteMany({});
-  await prisma.user.deleteMany({});
-
-  console.log('--- Base de Datos Limpia ---');
-
-  // 1. Crear Usuarios de Prueba
-  const password = await bcrypt.hash('1234', 10);
-  
-  const adminUser = await prisma.user.create({
+  // 2. Crear Usuarios
+  const hashedPassword = await bcrypt.hash('admin123', 10);
+  const admin = await prisma.user.create({
     data: {
-      email: 'admin@test.com',
-      password,
-      name: 'Administrador Sistema',
+      email: 'admin@huellaviva.com',
+      password: hashedPassword,
+      name: 'Administrador Territorial',
       role: 'ADMIN',
     },
   });
 
-  const operatorUser = await prisma.user.create({
+  const supervisor = await prisma.user.create({
     data: {
-      email: 'operador@test.com',
-      password,
-      name: 'Operador de Campo',
+      email: 'supervisor@huellaviva.com',
+      password: hashedPassword,
+      name: 'Supervisor de Campo',
       role: 'SUPERVISOR',
     },
   });
 
-  console.log('Usuarios creados:', { admin: adminUser.email, operator: operatorUser.email });
+  console.log('Usuarios creados correctamente.');
 
-  // 2. Crear Estados de Workflow
-  const states = [
-    { name: 'NUEVO', description: 'Ticket recién creado' },
-    { name: 'EN_PROCESO', description: 'Ticket siendo atendido' },
-    { name: 'COMPLETADO', description: 'Ticket resuelto con éxito' },
-    { name: 'CANCELADO', description: 'Ticket anulado' },
-    { name: 'CERRADO', description: 'Ticket finalizado y archivado' },
-  ];
-
-  const createdStates = await Promise.all(
-    states.map(state => prisma.workflowState.create({ data: state }))
-  );
-  
-  const stateMap = createdStates.reduce((acc, s) => ({ ...acc, [s.name]: s.id }), {} as Record<string, string>);
-  console.log('Estados de workflow creados.');
-
-  // 3. Crear Categorías
-  const categories = [
-    { name: 'SOPORTE', description: 'Consultas técnicas y ayuda' },
-    { name: 'OBRA', description: 'Gestión de proyectos en campo' },
-    { name: 'DOCUMENTACIÓN', description: 'Trámites y archivos legales (Cartas, Oficios)' },
-  ];
-
-  const createdCategories = await Promise.all(
-    categories.map(cat => prisma.category.create({ data: cat }))
-  );
-
-  const categoryMap = createdCategories.reduce((acc, c) => ({ ...acc, [c.name]: c.id }), {} as Record<string, string>);
-  console.log('Categorías creadas.');
-
-  // 4. Crear Tickets de Prueba (Sin IDs manuales)
-  const sampleTickets = [
-    {
-      title: 'Reparación de luminaria en Sector A',
-      description: 'La luminaria principal del sector A no enciende desde ayer.',
-      stateName: 'NUEVO',
-      categoryName: 'SOPORTE',
-      priority: 'URGENTE',
+  // 3. Crear Comunidades
+  const elRoble = await prisma.community.create({
+    data: {
+      nombre: 'Comunidad El Roble',
+      poblacion: 450,
+      location: 4.6097, // Float temporal
     },
-    {
-      title: 'Fuga de agua en sótano',
-      description: 'Se detectó una pequeña filtración en la tubería de desagüe.',
-      stateName: 'EN_PROCESO',
-      categoryName: 'OBRA',
-      priority: 'MEDIA',
-      latitude: -12.046374,
-      longitude: -77.042793,
-    },
-    {
-      title: 'Oficio Nro 124-2024: Solicitud de Materiales',
-      description: 'Documento formal para la adquisición de cemento y agregados.',
-      stateName: 'NUEVO',
-      categoryName: 'DOCUMENTACIÓN',
-      priority: 'MEDIA',
-    },
-    {
-      title: 'Carta de Aceptación de Obra',
-      description: 'Confirmación de recepción de los trabajos realizados en el Sector B.',
-      stateName: 'COMPLETADO',
-      categoryName: 'DOCUMENTACIÓN',
-      priority: 'BAJA',
-    },
-    {
-      title: 'Mantenimiento preventivo de ascensor',
-      description: 'Revisión mensual programada para el ascensor 2.',
-      stateName: 'NUEVO',
-      categoryName: 'SOPORTE',
-      priority: 'MEDIA',
-    },
-  ];
+  });
 
-  for (const t of sampleTickets) {
-    const ticket = await prisma.ticket.create({
-      data: {
-        title: t.title,
-        description: t.description,
-        workflowStateId: stateMap[t.stateName],
-        categoryId: categoryMap[t.categoryName],
-        userId: operatorUser.id,
-        priority: t.priority as any,
-        latitude: t.latitude,
-        longitude: t.longitude,
-      },
-    });
+  const sanJose = await prisma.community.create({
+    data: {
+      nombre: 'San José del Guaviare',
+      poblacion: 1200,
+      location: 2.5678,
+    },
+  });
 
-    // Crear un comentario inicial para cada ticket
-    await prisma.comment.create({
-      data: {
-        content: `Ticket creado automáticamente por el sistema para la categoría ${t.categoryName}.`,
-        userId: adminUser.id,
-        ticketId: ticket.id,
-      },
-    });
+  console.log('Comunidades creadas correctamente.');
 
-    console.log(`Ticket creado: ${ticket.title} (ID: ${ticket.id})`);
-  }
+  // 4. Crear Proyectos
+  const pozoAgua = await prisma.project.create({
+    data: {
+      nombre: 'Construcción Pozo de Agua',
+      tipo: 'AGUA',
+      presupuesto: 45000,
+      financiador: 'Huella Viva Fund',
+      estado: 'EN_EJECUCION',
+      communityId: elRoble.id,
+    },
+  });
 
-  console.log('--- Seed completado con éxito ---');
+  const escuela = await prisma.project.create({
+    data: {
+      nombre: 'Refacción Escuela Primaria',
+      tipo: 'EDUCACION',
+      presupuesto: 15000,
+      financiador: 'Gobierno Local',
+      estado: 'CULMINADO',
+      communityId: sanJose.id,
+    },
+  });
+
+  console.log('Proyectos creados correctamente.');
+
+  // 5. Crear Actividades (Memoria Viva)
+  const reunion1 = await prisma.activity.create({
+    data: {
+      tipo: 'REUNION',
+      descripcion: 'Reunión inicial para coordinar la entrega de materiales del pozo.',
+      userId: supervisor.id,
+      communityId: elRoble.id,
+      location: 4.6097,
+    },
+  });
+
+  console.log('Actividades creadas correctamente.');
+
+  // 6. Crear Compromisos
+  await prisma.commitment.create({
+    data: {
+      descripcion: 'Entrega de 50 metros de tubería PVC',
+      responsable: 'Supervisor de Campo',
+      estado: 'PROGRAMADO',
+      activityId: reunion1.id,
+      fecha_cumplimiento: new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000), // En 7 días
+    },
+  });
+
+  console.log('Compromisos creados correctamente.');
+  console.log('Seed finalizado con éxito.');
 }
 
 main()
   .catch((e) => {
-    console.error('Error durante el seed:', e);
+    console.error(e);
     process.exit(1);
   })
   .finally(async () => {

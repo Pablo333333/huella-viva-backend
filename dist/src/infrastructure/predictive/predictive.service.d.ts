@@ -1,14 +1,15 @@
 import { AiService } from '../ai/ai.service';
-export interface TicketSuggestions {
-    tipo: string;
-    prioridad: 'URGENTE' | 'MEDIA' | 'BAJA';
-    responsableSugerido?: string;
+export interface ActivitySuggestions {
+    tipo: 'REUNION' | 'INSPECCION' | 'VISITA' | 'TALLER' | 'OTRO';
     resumen: string;
-    titulo?: string;
+    commitments: Array<{
+        descripcion: string;
+        responsable: string;
+    }>;
 }
 export declare class PredictiveService {
     private readonly aiService;
     private readonly logger;
     constructor(aiService: AiService);
-    analyzeDocumentText(text: string): Promise<TicketSuggestions>;
+    analyzeActivityText(text: string): Promise<ActivitySuggestions>;
 }

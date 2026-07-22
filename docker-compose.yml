@@ -1,7 +1,7 @@
 services:
   postgres:
-    image: postgres:15-alpine
-    container_name: kontrolia-db
+    image: postgis/postgis:15-3.4-alpine
+    container_name: huella-viva-db
     restart: always
     environment:
       POSTGRES_USER: postgres
@@ -14,7 +14,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: kontrolia-redis
+    container_name: huella-viva-redis
     restart: always
     ports:
       - "6379:6379"

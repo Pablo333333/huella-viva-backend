@@ -27,13 +27,51 @@ let AiService = class AiService {
             return "IA: (Simulación) El hilo de conversación trata sobre la gestión técnica del ticket, destacando los puntos clave de la comunicación entre el usuario y el sistema.";
         }
         const response = await this.openai.chat.completions.create({
-            model: "gpt-3.5-turbo",
+            model: "gpt-4o",
             messages: [
-                { role: "system", content: "Eres un asistente experto en gestión documental. Resume la siguiente conversación de un ticket de soporte en máximo 100 palabras." },
+                { role: "system", content: "Eres un asistente experto en gestión documental. Resume la siguiente conversación en máximo 100 palabras." },
                 { role: "user", content: text }
             ],
         });
         return response.choices[0].message.content || 'No se pudo generar el resumen.';
+    }
+    async transcribeAudio(audioBuffer) {
+        if (!process.env.OPENAI_API_KEY) {
+            return "Transcripción simulada: El día de hoy visitamos la comunidad de El Roble para revisar el avance del pozo de agua.";
+        }
+        const transcription = await this.openai.audio.transcriptions.create({
+            file: await openai_1.default.toFile(audioBuffer, 'audio.mp3'),
+            model: "whisper-1",
+        });
+        return transcription.text;
+    }
+    async parseActivity(text) {
+        if (!process.env.OPENAI_API_KEY) {
+            return {
+                tipo: 'VISITA',
+                descripcion: text,
+                fecha: new Date().toISOString(),
+                commitments: []
+            };
+        }
+        const response = await this.openai.chat.completions.create({
+            model: "gpt-4o",
+            messages: [
+                {
+                    role: "system",
+                    content: `Actúa como un parser de lenguaje natural para gestión social territorial. 
+          Extrae la siguiente información del texto en formato JSON estricto:
+          - tipo: Uno de [REUNION, INSPECCION, VISITA, TALLER, OTRO]
+          - descripcion: Resumen de lo ocurrido
+          - fecha: Fecha mencionada o la actual en formato ISO
+          - commitments: Lista de objetos con { descripcion, responsable, fecha_cumplimiento (ISO) }
+          
+          Texto: "${text}"`
+                }
+            ],
+            response_format: { type: "json_object" }
+        });
+        return JSON.parse(response.choices[0].message.content || '{}');
     }
     async classifyPriority(text) {
         const urgentWords = ['urgente', 'peligro', 'rotura', 'emergencia', 'inmediato', 'crítico'];

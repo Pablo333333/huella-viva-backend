@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { TicketsModule } from './presentation/tickets/tickets.module';
+import { ActivitiesModule } from './presentation/activities/activities.module';
+import { DashboardModule } from './presentation/dashboard/dashboard.module';
 import { AuthModule } from './presentation/auth/auth.module';
-import { CatalogModule } from './presentation/catalog/catalog.module';
 import { AuditPresentationModule } from './presentation/audit/audit.module';
 import { SocketModule } from './infrastructure/socket/socket.module';
 import { NotificationModule } from './infrastructure/notifications/notification.module';
@@ -15,8 +15,8 @@ import { ConfigModule } from '@nestjs/config';
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     AuthModule, 
-    TicketsModule, 
-    CatalogModule, 
+    ActivitiesModule,
+    DashboardModule,
     AuditPresentationModule, 
     SocketModule,
     NotificationModule

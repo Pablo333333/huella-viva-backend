@@ -19,16 +19,14 @@ let PredictiveService = PredictiveService_1 = class PredictiveService {
     constructor(aiService) {
         this.aiService = aiService;
     }
-    async analyzeDocumentText(text) {
-        this.logger.log('Analizando texto extraído para sugerencias predictivas...');
+    async analyzeActivityText(text) {
+        this.logger.log('Analizando texto de actividad para sugerencias predictivas...');
         const prompt = `
-      Analiza el siguiente texto extraído de un documento o reporte de obra y devuelve un objeto JSON con las siguientes sugerencias para un sistema de gestión de tickets:
+      Analiza el siguiente texto de un reporte territorial y devuelve un objeto JSON con sugerencias:
       
-      1. "tipo": Clasifica entre (SOLICITUD, CARTA, OFICIO, INFORME).
-      2. "prioridad": Clasifica entre (URGENTE, MEDIA, BAJA).
-      3. "responsableSugerido": Identifica si se menciona un nombre de persona o departamento específico al que deba dirigirse.
-      4. "resumen": Un resumen de 15 palabras del propósito o problema reportado.
-      5. "titulo": Un título corto y descriptivo de máximo 6 palabras.
+      1. "tipo": Clasifica entre (REUNION, INSPECCION, VISITA, TALLER, OTRO).
+      2. "resumen": Un resumen de 20 palabras de lo ocurrido.
+      3. "commitments": Lista de objetos { descripcion, responsable } si se mencionan compromisos o promesas.
 
       Texto:
       "${text.substring(0, 2000)}"
@@ -37,7 +35,7 @@ let PredictiveService = PredictiveService_1 = class PredictiveService {
     `;
         try {
             const response = await this.aiService.openai.chat.completions.create({
-                model: "gpt-3.5-turbo-0125",
+                model: "gpt-4o",
                 messages: [{ role: "user", content: prompt }],
                 response_format: { type: "json_object" },
             });
@@ -47,10 +45,9 @@ let PredictiveService = PredictiveService_1 = class PredictiveService {
         catch (error) {
             this.logger.error(`Error en análisis predictivo: ${error.message}`);
             return {
-                tipo: 'SOLICITUD',
-                prioridad: 'MEDIA',
-                resumen: 'No se pudo analizar el documento automáticamente.',
-                titulo: 'Nuevo Ticket (OCR)'
+                tipo: 'VISITA',
+                resumen: 'No se pudo analizar la actividad automáticamente.',
+                commitments: []
             };
         }
     }
