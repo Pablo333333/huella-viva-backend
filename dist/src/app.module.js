@@ -11,6 +11,7 @@ const common_1 = require("@nestjs/common");
 const app_controller_1 = require("./app.controller");
 const app_service_1 = require("./app.service");
 const activities_module_1 = require("./presentation/activities/activities.module");
+const communities_module_1 = require("./presentation/communities/communities.module");
 const dashboard_module_1 = require("./presentation/dashboard/dashboard.module");
 const auth_module_1 = require("./presentation/auth/auth.module");
 const audit_module_1 = require("./presentation/audit/audit.module");
@@ -28,6 +29,7 @@ exports.AppModule = AppModule = __decorate([
             prisma_module_1.PrismaModule,
             auth_module_1.AuthModule,
             activities_module_1.ActivitiesModule,
+            communities_module_1.CommunitiesModule,
             dashboard_module_1.DashboardModule,
             audit_module_1.AuditPresentationModule,
             socket_module_1.SocketModule,

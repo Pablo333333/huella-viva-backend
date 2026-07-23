@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -12,8 +12,7 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   console.log('Seed: Iniciando poblamiento de base de datos Huella Viva 360...');
 
-  // 1. Limpiar datos existentes (Opcional, pero recomendado para seed limpio)
-  // El orden importa por las llaves foráneas
+  // 1. Limpiar datos existentes (orden por FKs)
   await prisma.commitment.deleteMany();
   await prisma.activity.deleteMany();
   await prisma.investment.deleteMany();
@@ -21,34 +20,57 @@ async function main() {
   await prisma.community.deleteMany();
   await prisma.user.deleteMany();
 
-  // 2. Crear Usuarios
-  const hashedPassword = await bcrypt.hash('admin123', 10);
-  const admin = await prisma.user.create({
-    data: {
-      email: 'admin@huellaviva.com',
-      password: hashedPassword,
-      name: 'Administrador Territorial',
-      role: 'ADMIN',
-    },
-  });
+  // 2. Crear usuarios por rol (contraseña: 1234)
+  const hashedPassword = await bcrypt.hash('1234', 10);
 
-  const supervisor = await prisma.user.create({
-    data: {
-      email: 'supervisor@huellaviva.com',
-      password: hashedPassword,
-      name: 'Supervisor de Campo',
-      role: 'SUPERVISOR',
+  const users = [
+    {
+      email: 'admin@test.com',
+      name: 'Gestor Social Territorial',
+      role: Role.ADMIN_TERRITORIAL,
     },
-  });
+    {
+      email: 'empresa@test.com',
+      name: 'Actor Corporativo',
+      role: Role.EMPRESA,
+    },
+    {
+      email: 'estado@test.com',
+      name: 'Representante Gubernamental',
+      role: Role.ESTADO,
+    },
+    {
+      email: 'comunidad@test.com',
+      name: 'Liderazgo Comunal',
+      role: Role.COMUNIDAD,
+    },
+  ];
 
-  console.log('Usuarios creados correctamente.');
+  const createdUsers = await Promise.all(
+    users.map((user) =>
+      prisma.user.create({
+        data: {
+          email: user.email,
+          password: hashedPassword,
+          name: user.name,
+          role: user.role,
+        },
+      }),
+    ),
+  );
+
+  const admin = createdUsers.find((u) => u.role === Role.ADMIN_TERRITORIAL)!;
+  const comunidadUser = createdUsers.find((u) => u.role === Role.COMUNIDAD)!;
+
+  console.log('Usuarios creados:');
+  createdUsers.forEach((u) => console.log(`  - ${u.email} [${u.role}]`));
 
   // 3. Crear Comunidades
   const elRoble = await prisma.community.create({
     data: {
       nombre: 'Comunidad El Roble',
       poblacion: 450,
-      location: 4.6097, // Float temporal
+      location: 4.6097,
     },
   });
 
@@ -63,7 +85,7 @@ async function main() {
   console.log('Comunidades creadas correctamente.');
 
   // 4. Crear Proyectos
-  const pozoAgua = await prisma.project.create({
+  await prisma.project.create({
     data: {
       nombre: 'Construcción Pozo de Agua',
       tipo: 'AGUA',
@@ -74,7 +96,7 @@ async function main() {
     },
   });
 
-  const escuela = await prisma.project.create({
+  await prisma.project.create({
     data: {
       nombre: 'Refacción Escuela Primaria',
       tipo: 'EDUCACION',
@@ -91,8 +113,19 @@ async function main() {
   const reunion1 = await prisma.activity.create({
     data: {
       tipo: 'REUNION',
-      descripcion: 'Reunión inicial para coordinar la entrega de materiales del pozo.',
-      userId: supervisor.id,
+      descripcion:
+        'Reunión inicial para coordinar la entrega de materiales del pozo.',
+      userId: admin.id,
+      communityId: elRoble.id,
+      location: 4.6097,
+    },
+  });
+
+  await prisma.activity.create({
+    data: {
+      tipo: 'VISITA',
+      descripcion: 'Visita de seguimiento a compromisos locales.',
+      userId: comunidadUser.id,
       communityId: elRoble.id,
       location: 4.6097,
     },
@@ -104,10 +137,12 @@ async function main() {
   await prisma.commitment.create({
     data: {
       descripcion: 'Entrega de 50 metros de tubería PVC',
-      responsable: 'Supervisor de Campo',
+      responsable: 'Gestor Social Territorial',
       estado: 'PROGRAMADO',
       activityId: reunion1.id,
-      fecha_cumplimiento: new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000), // En 7 días
+      fecha_cumplimiento: new Date(
+        new Date().getTime() + 7 * 24 * 60 * 60 * 1000,
+      ),
     },
   });
 
@@ -122,4 +157,5 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect();
+    await pool.end();
   });

@@ -1,4 +1,4 @@
-import { IsString, IsOptional } from 'class-validator';
+import { IsString, IsOptional, IsNotEmpty } from 'class-validator';
 
 export class ProcessTerraVozDto {
   @IsString()
@@ -10,9 +10,11 @@ export class ProcessTerraVozDto {
   audioUrl?: string;
 
   @IsString()
-  communityId: string;
+  @IsOptional()
+  communityId?: string;
 
   @IsString()
+  @IsNotEmpty()
   userId: string;
 }
 
@@ -20,9 +22,31 @@ export interface TerraVozParsedData {
   tipo: 'REUNION' | 'INSPECCION' | 'VISITA' | 'TALLER' | 'OTRO';
   descripcion: string;
   fecha: string;
+  comunidadNombre?: string | null;
   commitments: {
     descripcion: string;
     responsable: string;
     fecha_cumplimiento?: string;
   }[];
+}
+
+export interface TerraVozResult {
+  activity: {
+    id: string;
+    tipo: string;
+    descripcion: string;
+    fecha: Date;
+    audioUrl?: string | null;
+    fotoUrl?: string | null;
+    location?: number | null;
+    userId: string;
+    communityId: string;
+    commitments?: unknown[];
+    createdAt?: Date;
+    updatedAt?: Date;
+  };
+  commitmentsCreated: number;
+  communityName?: string;
+  transcript: string;
+  message: string;
 }

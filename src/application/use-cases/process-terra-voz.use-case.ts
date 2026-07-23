@@ -1,9 +1,18 @@
-import { Inject, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { AiService } from '../../infrastructure/ai/ai.service';
 import { IActivityRepository } from '../../domain/repositories/activity.repository.interface';
 import { ICommitmentRepository } from '../../domain/repositories/commitment.repository.interface';
-import { ProcessTerraVozDto, TerraVozParsedData } from '../dtos/terra-voz.dto';
-import { Activity } from '../../domain/entities/activity.entity';
+import { ICommunityRepository } from '../../domain/repositories/community.repository.interface';
+import {
+  ProcessTerraVozDto,
+  TerraVozParsedData,
+  TerraVozResult,
+} from '../dtos/terra-voz.dto';
 
 @Injectable()
 export class ProcessTerraVozUseCase {
@@ -13,45 +22,130 @@ export class ProcessTerraVozUseCase {
     private readonly activityRepository: IActivityRepository,
     @Inject(ICommitmentRepository)
     private readonly commitmentRepository: ICommitmentRepository,
+    @Inject(ICommunityRepository)
+    private readonly communityRepository: ICommunityRepository,
   ) {}
 
-  async execute(dto: ProcessTerraVozDto, audioBuffer?: Buffer): Promise<Activity> {
-    let text = dto.text || '';
+  async execute(
+    dto: ProcessTerraVozDto,
+    audioBuffer?: Buffer,
+  ): Promise<TerraVozResult> {
+    let text = dto.text?.trim() || '';
 
-    // 1. Si hay audio, transcribir
-    if (audioBuffer) {
+    if (audioBuffer && audioBuffer.length > 0) {
       text = await this.aiService.transcribeAudio(audioBuffer);
     }
 
     if (!text) {
-      throw new Error('No se proporcionó texto ni audio válido.');
+      throw new BadRequestException(
+        'No se proporcionó texto ni audio válido.',
+      );
     }
 
-    // 2. Parsear el texto usando GPT-4o
-    const parsedData: TerraVozParsedData = await this.aiService.parseActivity(text);
+    if (!dto.userId) {
+      throw new BadRequestException('userId es requerido.');
+    }
 
-    // 3. Crear la Actividad (Memoria Viva)
+    const parsedData: TerraVozParsedData =
+      await this.aiService.parseActivity(text);
+
+    const { community, location } = await this.resolveCommunity(
+      dto.communityId,
+      parsedData.comunidadNombre,
+    );
+
     const activity = await this.activityRepository.create({
       tipo: parsedData.tipo,
       descripcion: parsedData.descripcion,
       fecha: parsedData.fecha ? new Date(parsedData.fecha) : new Date(),
       audioUrl: dto.audioUrl,
+      location,
       userId: dto.userId,
-      communityId: dto.communityId,
+      communityId: community.id,
     });
 
-    // 4. Crear los Compromisos asociados
-    if (parsedData.commitments && parsedData.commitments.length > 0) {
+    let commitmentsCreated = 0;
+    if (parsedData.commitments?.length) {
       for (const commitmentData of parsedData.commitments) {
         await this.commitmentRepository.create({
           descripcion: commitmentData.descripcion,
-          responsable: commitmentData.responsable,
-          fecha_cumplimiento: commitmentData.fecha_cumplimiento ? new Date(commitmentData.fecha_cumplimiento) : null,
+          responsable: commitmentData.responsable || 'Equipo territorial',
+          fecha_cumplimiento: commitmentData.fecha_cumplimiento
+            ? new Date(commitmentData.fecha_cumplimiento)
+            : null,
           activityId: activity.id,
         });
+        commitmentsCreated += 1;
       }
     }
 
-    return activity;
+    const fullActivity = await this.activityRepository.findById(activity.id);
+
+    return {
+      activity: fullActivity || activity,
+      commitmentsCreated,
+      communityName: community.nombre,
+      transcript: text,
+      message: this.buildSuccessMessage(
+        parsedData.tipo,
+        commitmentsCreated,
+        community.nombre,
+      ),
+    };
+  }
+
+  private async resolveCommunity(
+    communityId?: string,
+    comunidadNombre?: string | null,
+  ) {
+    const communities = await this.communityRepository.findAll();
+
+    if (!communities.length) {
+      throw new NotFoundException(
+        'No hay comunidades en la base de datos. Ejecuta el seed.',
+      );
+    }
+
+    if (communityId) {
+      const byId = communities.find((c) => c.id === communityId);
+      if (byId) {
+        return { community: byId, location: byId.location ?? null };
+      }
+    }
+
+    if (comunidadNombre) {
+      const needle = this.normalize(comunidadNombre);
+      const byName = communities.find((c) => {
+        const name = this.normalize(c.nombre);
+        return name.includes(needle) || needle.includes(name);
+      });
+      if (byName) {
+        return { community: byName, location: byName.location ?? null };
+      }
+    }
+
+    const fallback = communities[0];
+    return { community: fallback, location: fallback.location ?? null };
+  }
+
+  private normalize(value: string): string {
+    return value
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/comunidad\s+/g, '')
+      .trim();
+  }
+
+  private buildSuccessMessage(
+    tipo: string,
+    commitmentsCreated: number,
+    communityName: string,
+  ): string {
+    const base = `${tipo} registrada en ${communityName}`;
+    if (commitmentsCreated > 0) {
+      return `${base} con ${commitmentsCreated} compromiso(s).`;
+    }
+    return `${base}.`;
   }
 }

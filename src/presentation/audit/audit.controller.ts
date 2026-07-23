@@ -11,7 +11,7 @@ export class AuditController {
   constructor(private readonly auditService: AuditService) {}
 
   @Get('verify/:id')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN_TERRITORIAL)
   async verify(@Param('id') id: string) {
     return this.auditService.verifyIntegrity(id);
   }

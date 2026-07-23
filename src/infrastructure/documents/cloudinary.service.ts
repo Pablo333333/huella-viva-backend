@@ -22,7 +22,7 @@ export class CloudinaryService {
     }
   }
 
-  getStorage(folder: string = 'kontrolia') {
+  getStorage(folder: string = 'huella-viva') {
     return new CloudinaryStorage({
       cloudinary: cloudinary,
       params: {

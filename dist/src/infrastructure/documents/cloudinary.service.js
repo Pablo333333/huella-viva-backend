@@ -28,7 +28,7 @@ let CloudinaryService = class CloudinaryService {
             }
         }
     }
-    getStorage(folder = 'kontrolia') {
+    getStorage(folder = 'huella-viva') {
         return new multer_storage_cloudinary_1.CloudinaryStorage({
             cloudinary: cloudinary_1.v2,
             params: {

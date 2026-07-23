@@ -50,24 +50,41 @@ async function main() {
     await prisma.project.deleteMany();
     await prisma.community.deleteMany();
     await prisma.user.deleteMany();
-    const hashedPassword = await bcrypt.hash('admin123', 10);
-    const admin = await prisma.user.create({
-        data: {
-            email: 'admin@huellaviva.com',
-            password: hashedPassword,
-            name: 'Administrador Territorial',
-            role: 'ADMIN',
+    const hashedPassword = await bcrypt.hash('1234', 10);
+    const users = [
+        {
+            email: 'admin@test.com',
+            name: 'Gestor Social Territorial',
+            role: client_1.Role.ADMIN_TERRITORIAL,
         },
-    });
-    const supervisor = await prisma.user.create({
-        data: {
-            email: 'supervisor@huellaviva.com',
-            password: hashedPassword,
-            name: 'Supervisor de Campo',
-            role: 'SUPERVISOR',
+        {
+            email: 'empresa@test.com',
+            name: 'Actor Corporativo',
+            role: client_1.Role.EMPRESA,
         },
-    });
-    console.log('Usuarios creados correctamente.');
+        {
+            email: 'estado@test.com',
+            name: 'Representante Gubernamental',
+            role: client_1.Role.ESTADO,
+        },
+        {
+            email: 'comunidad@test.com',
+            name: 'Liderazgo Comunal',
+            role: client_1.Role.COMUNIDAD,
+        },
+    ];
+    const createdUsers = await Promise.all(users.map((user) => prisma.user.create({
+        data: {
+            email: user.email,
+            password: hashedPassword,
+            name: user.name,
+            role: user.role,
+        },
+    })));
+    const admin = createdUsers.find((u) => u.role === client_1.Role.ADMIN_TERRITORIAL);
+    const comunidadUser = createdUsers.find((u) => u.role === client_1.Role.COMUNIDAD);
+    console.log('Usuarios creados:');
+    createdUsers.forEach((u) => console.log(`  - ${u.email} [${u.role}]`));
     const elRoble = await prisma.community.create({
         data: {
             nombre: 'Comunidad El Roble',
@@ -83,7 +100,7 @@ async function main() {
         },
     });
     console.log('Comunidades creadas correctamente.');
-    const pozoAgua = await prisma.project.create({
+    await prisma.project.create({
         data: {
             nombre: 'Construcción Pozo de Agua',
             tipo: 'AGUA',
@@ -93,7 +110,7 @@ async function main() {
             communityId: elRoble.id,
         },
     });
-    const escuela = await prisma.project.create({
+    await prisma.project.create({
         data: {
             nombre: 'Refacción Escuela Primaria',
             tipo: 'EDUCACION',
@@ -108,7 +125,16 @@ async function main() {
         data: {
             tipo: 'REUNION',
             descripcion: 'Reunión inicial para coordinar la entrega de materiales del pozo.',
-            userId: supervisor.id,
+            userId: admin.id,
+            communityId: elRoble.id,
+            location: 4.6097,
+        },
+    });
+    await prisma.activity.create({
+        data: {
+            tipo: 'VISITA',
+            descripcion: 'Visita de seguimiento a compromisos locales.',
+            userId: comunidadUser.id,
             communityId: elRoble.id,
             location: 4.6097,
         },
@@ -117,7 +143,7 @@ async function main() {
     await prisma.commitment.create({
         data: {
             descripcion: 'Entrega de 50 metros de tubería PVC',
-            responsable: 'Supervisor de Campo',
+            responsable: 'Gestor Social Territorial',
             estado: 'PROGRAMADO',
             activityId: reunion1.id,
             fecha_cumplimiento: new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000),
@@ -133,5 +159,6 @@ main()
 })
     .finally(async () => {
     await prisma.$disconnect();
+    await pool.end();
 });
 //# sourceMappingURL=seed.js.map

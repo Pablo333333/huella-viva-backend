@@ -11,9 +11,10 @@ datasource db {
 }
 
 enum Role {
-  ADMIN
-  SUPERVISOR
-  OPERARIO
+  ADMIN_TERRITORIAL
+  EMPRESA
+  ESTADO
+  COMUNIDAD
 }
 
 enum ProjectStatus {
@@ -50,7 +51,7 @@ model User {
   email      String     @unique
   password   String
   name       String?
-  role       Role       @default(OPERARIO)
+  role       Role       @default(COMUNIDAD)
   pushToken  String?
   activities Activity[]
   createdAt  DateTime   @default(now())

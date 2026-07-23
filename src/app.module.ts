@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ActivitiesModule } from './presentation/activities/activities.module';
+import { CommunitiesModule } from './presentation/communities/communities.module';
 import { DashboardModule } from './presentation/dashboard/dashboard.module';
 import { AuthModule } from './presentation/auth/auth.module';
 import { AuditPresentationModule } from './presentation/audit/audit.module';
@@ -16,6 +17,7 @@ import { ConfigModule } from '@nestjs/config';
     PrismaModule,
     AuthModule, 
     ActivitiesModule,
+    CommunitiesModule,
     DashboardModule,
     AuditPresentationModule, 
     SocketModule,

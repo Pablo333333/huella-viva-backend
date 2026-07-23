@@ -36,4 +36,9 @@ export class ActivitiesController {
   async getTimeline(@Param('communityId') communityId: string) {
     return this.activityRepository.getTimeline(communityId);
   }
+
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    return this.activityRepository.findById(id);
+  }
 }
