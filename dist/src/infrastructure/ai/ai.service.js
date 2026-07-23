@@ -57,16 +57,18 @@ let AiService = AiService_1 = class AiService {
             this.logger.warn('OPENAI_API_KEY ausente: usando parser local de lenguaje natural.');
             return this.parseActivityLocally(text);
         }
+        const todayIso = new Date().toISOString();
         const response = await this.openai.chat.completions.create({
             model: 'gpt-4o',
             messages: [
                 {
                     role: 'system',
                     content: `Actúa como un parser de lenguaje natural para gestión social territorial en Colombia.
+Hoy es ${todayIso}.
 Extrae la siguiente información del texto en formato JSON estricto:
 - tipo: Uno de [REUNION, INSPECCION, VISITA, TALLER, OTRO]
 - descripcion: Resumen claro de lo ocurrido o lo planificado
-- fecha: Fecha mencionada o la actual en formato ISO 8601
+- fecha: SOLO si el texto menciona una fecha explícita (hoy, mañana, día de la semana, día del mes, etc.). Si NO hay fecha, usa exactamente: ${todayIso}
 - comunidadNombre: Nombre de la comunidad/territorio si se menciona (o null)
 - commitments: Lista de objetos con { descripcion, responsable, fecha_cumplimiento (ISO o null) }
 Si no hay compromisos explícitos pero hay una reunión o visita futura, crea al menos un compromiso de seguimiento.`,
@@ -79,7 +81,7 @@ Si no hay compromisos explícitos pero hay una reunión o visita futura, crea al
         return {
             tipo: parsed.tipo || 'OTRO',
             descripcion: parsed.descripcion || text,
-            fecha: parsed.fecha || new Date().toISOString(),
+            fecha: this.resolveActivityFecha(text, parsed.fecha),
             comunidadNombre: parsed.comunidadNombre,
             commitments: Array.isArray(parsed.commitments)
                 ? parsed.commitments
@@ -95,10 +97,36 @@ Si no hay compromisos explícitos pero hay una reunión o visita futura, crea al
         return {
             tipo,
             descripcion: text.trim(),
-            fecha: fecha.toISOString(),
+            fecha: this.resolveActivityFecha(text, fecha.toISOString()),
             comunidadNombre: comunidadNombre ?? undefined,
             commitments,
         };
+    }
+    resolveActivityFecha(text, parsedFecha) {
+        const now = new Date();
+        if (!this.textMentionsExplicitDate(text)) {
+            return now.toISOString();
+        }
+        if (!parsedFecha) {
+            return now.toISOString();
+        }
+        const parsed = new Date(parsedFecha);
+        if (Number.isNaN(parsed.getTime())) {
+            return now.toISOString();
+        }
+        if (!/\b20\d{2}\b/.test(text) && parsed.getFullYear() !== now.getFullYear()) {
+            parsed.setFullYear(now.getFullYear());
+        }
+        return parsed.toISOString();
+    }
+    textMentionsExplicitDate(text) {
+        const lower = text.toLowerCase();
+        return (/\bhoy\b/.test(lower) ||
+            /\bmañana\b/.test(lower) ||
+            /\b(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\b/.test(lower) ||
+            /\b\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?\b/.test(lower) ||
+            /\b(?:el\s+)?\d{1,2}\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\b/.test(lower) ||
+            /\b\d{1,2}\s+a\s+las\b/.test(lower));
     }
     detectTipo(lower) {
         if (/reuni[oó]n|encuentro|asamblea/.test(lower))
@@ -113,6 +141,9 @@ Si no hay compromisos explícitos pero hay una reunión o visita futura, crea al
     }
     detectFecha(text, lower) {
         const now = new Date();
+        if (!this.textMentionsExplicitDate(text)) {
+            return now;
+        }
         if (/\bhoy\b/.test(lower)) {
             return now;
         }
@@ -122,7 +153,7 @@ Si no hay compromisos explícitos pero hay una reunión o visita futura, crea al
             return d;
         }
         const dayMatch = lower.match(/\b(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\b(?:\s+(\d{1,2}))?/);
-        const timeMatch = lower.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.?\s*m\.?|p\.?\s*m\.?)?/);
+        const timeMatch = lower.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.?\s*m\.?|p\.?\s*m\.?)/);
         const result = new Date(now);
         if (dayMatch) {
             const weekdayMap = {

@@ -7,6 +7,8 @@ export declare class AiService {
     transcribeAudio(audioBuffer: Buffer): Promise<string>;
     parseActivity(text: string): Promise<TerraVozParsedData>;
     parseActivityLocally(text: string): TerraVozParsedData;
+    resolveActivityFecha(text: string, parsedFecha?: string | null): string;
+    private textMentionsExplicitDate;
     private detectTipo;
     private detectFecha;
     private detectComunidad;

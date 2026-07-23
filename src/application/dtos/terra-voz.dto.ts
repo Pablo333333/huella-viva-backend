@@ -1,4 +1,16 @@
-import { IsString, IsOptional, IsNotEmpty } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsNotEmpty,
+  IsNumber,
+} from 'class-validator';
+import { Transform } from 'class-transformer';
+
+function toOptionalNumber(value: unknown): number | undefined {
+  if (value === '' || value === null || value === undefined) return undefined;
+  const n = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(n) ? n : undefined;
+}
 
 export class ProcessTerraVozDto {
   @IsString()
@@ -16,6 +28,18 @@ export class ProcessTerraVozDto {
   @IsString()
   @IsNotEmpty()
   userId: string;
+
+  /** Latitud GPS del dispositivo (multipart llega como string). */
+  @IsOptional()
+  @Transform(({ value }) => toOptionalNumber(value))
+  @IsNumber()
+  latitude?: number;
+
+  /** Longitud GPS del dispositivo. */
+  @IsOptional()
+  @Transform(({ value }) => toOptionalNumber(value))
+  @IsNumber()
+  longitude?: number;
 }
 
 export interface TerraVozParsedData {
@@ -39,6 +63,8 @@ export interface TerraVozResult {
     audioUrl?: string | null;
     fotoUrl?: string | null;
     location?: number | null;
+    latitude?: number | null;
+    longitude?: number | null;
     userId: string;
     communityId: string;
     commitments?: unknown[];

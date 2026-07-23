@@ -103,7 +103,9 @@ model Activity {
   fecha       DateTime     @default(now())
   audioUrl    String?
   fotoUrl     String?
-  location    Float? // Temporal
+  location    Float? // Legacy: latitud aproximada
+  latitude    Float? // GPS real del dispositivo
+  longitude   Float? // GPS real del dispositivo
   
   user        User         @relation(fields: [userId], references: [id])
   userId      String

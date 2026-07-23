@@ -15,7 +15,9 @@ export class PrismaActivityRepository implements IActivityRepository {
         fecha: activity.fecha || new Date(),
         audioUrl: activity.audioUrl,
         fotoUrl: activity.fotoUrl,
-        location: activity.location,
+        location: activity.location ?? activity.latitude ?? null,
+        latitude: activity.latitude ?? null,
+        longitude: activity.longitude ?? null,
         userId: activity.userId!,
         communityId: activity.communityId!,
       },
@@ -58,7 +60,9 @@ export class PrismaActivityRepository implements IActivityRepository {
         fecha: activity.fecha,
         audioUrl: activity.audioUrl,
         fotoUrl: activity.fotoUrl,
-        location: activity.location,
+        location: activity.location ?? activity.latitude,
+        latitude: activity.latitude,
+        longitude: activity.longitude,
       },
     });
     return new Activity(updated as any);

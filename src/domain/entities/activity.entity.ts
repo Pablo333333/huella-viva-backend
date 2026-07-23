@@ -11,7 +11,9 @@ export class Activity {
   fecha: Date;
   audioUrl?: string | null;
   fotoUrl?: string | null;
-  location?: number | null; // Float temporal
+  location?: number | null; // Legacy lat
+  latitude?: number | null;
+  longitude?: number | null;
   userId: string;
   communityId: string;
   createdAt: Date;

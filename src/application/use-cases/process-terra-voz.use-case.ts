@@ -2,7 +2,6 @@ import {
   BadRequestException,
   Inject,
   Injectable,
-  NotFoundException,
 } from '@nestjs/common';
 import { AiService } from '../../infrastructure/ai/ai.service';
 import { IActivityRepository } from '../../domain/repositories/activity.repository.interface';
@@ -49,17 +48,26 @@ export class ProcessTerraVozUseCase {
     const parsedData: TerraVozParsedData =
       await this.aiService.parseActivity(text);
 
-    const { community, location } = await this.resolveCommunity(
-      dto.communityId,
-      parsedData.comunidadNombre,
-    );
+    const { community, location: communityLocation } =
+      await this.resolveCommunity(dto.communityId, parsedData.comunidadNombre);
+
+    const hasGps =
+      typeof dto.latitude === 'number' &&
+      typeof dto.longitude === 'number' &&
+      Number.isFinite(dto.latitude) &&
+      Number.isFinite(dto.longitude);
 
     const activity = await this.activityRepository.create({
       tipo: parsedData.tipo,
       descripcion: parsedData.descripcion,
-      fecha: parsedData.fecha ? new Date(parsedData.fecha) : new Date(),
+      fecha: new Date(
+        this.aiService.resolveActivityFecha(text, parsedData.fecha),
+      ),
       audioUrl: dto.audioUrl,
-      location,
+      // GPS del dispositivo tiene prioridad sobre location fija de comunidad
+      latitude: hasGps ? dto.latitude : null,
+      longitude: hasGps ? dto.longitude : null,
+      location: hasGps ? dto.latitude! : communityLocation,
       userId: dto.userId,
       communityId: community.id,
     });
@@ -98,12 +106,16 @@ export class ProcessTerraVozUseCase {
     communityId?: string,
     comunidadNombre?: string | null,
   ) {
-    const communities = await this.communityRepository.findAll();
+    let communities = await this.communityRepository.findAll();
 
+    // Tras un reset total: crear comunidad territorial al vuelo para Terra Voz
     if (!communities.length) {
-      throw new NotFoundException(
-        'No hay comunidades en la base de datos. Ejecuta el seed.',
-      );
+      const created = await this.communityRepository.create({
+        nombre: comunidadNombre?.trim() || 'Territorio en vivo',
+        poblacion: 0,
+        location: null,
+      });
+      return { community: created, location: created.location ?? null };
     }
 
     if (communityId) {
