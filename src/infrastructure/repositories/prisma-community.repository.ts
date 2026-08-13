@@ -83,6 +83,13 @@ export class PrismaCommunityRepository implements ICommunityRepository {
     return communities.map((c) => new Community(c));
   }
 
+  async linkUser(userId: string, communityId: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { communityId },
+    });
+  }
+
   async findNearest(
     latitude: number,
     longitude: number,

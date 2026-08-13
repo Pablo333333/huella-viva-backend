@@ -22,7 +22,7 @@ export class GetDashboardMetricsUseCase {
   async execute(filters: DashboardMetricsFilters = {}) {
     const activities = await this.activityRepository.findAll({
       communityId: filters.communityId,
-      userId: filters.communityId ? undefined : filters.userId,
+      userId: filters.userId,
     });
     const catalogCommunities = await this.communityRepository.findAll();
 

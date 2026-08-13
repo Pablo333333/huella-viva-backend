@@ -55,8 +55,16 @@ export class PrismaActivityRepository implements IActivityRepository {
     estado?: string;
   }): Promise<Activity[]> {
     const where: any = {};
-    if (filters?.communityId) where.communityId = filters.communityId;
-    if (filters?.userId) where.userId = filters.userId;
+    if (filters?.communityId && filters?.userId) {
+      where.OR = [
+        { communityId: filters.communityId },
+        { userId: filters.userId },
+      ];
+    } else if (filters?.communityId) {
+      where.communityId = filters.communityId;
+    } else if (filters?.userId) {
+      where.userId = filters.userId;
+    }
     if (filters?.type) where.tipo = filters.type as any;
     if (filters?.estado) where.estado = filters.estado as any;
 

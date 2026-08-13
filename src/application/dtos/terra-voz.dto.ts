@@ -184,6 +184,7 @@ export interface TerraVozResult {
     updatedAt?: Date;
   };
   commitmentsCreated: number;
+  communityId?: string;
   communityName?: string;
   transcript: string;
   message: string;

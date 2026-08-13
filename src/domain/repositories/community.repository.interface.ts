@@ -5,6 +5,7 @@ export interface ICommunityRepository {
   findById(id: string): Promise<Community | null>;
   findByNombre(nombre: string): Promise<Community | null>;
   findAll(): Promise<Community[]>;
+  linkUser(userId: string, communityId: string): Promise<void>;
   findNearest(
     latitude: number,
     longitude: number,

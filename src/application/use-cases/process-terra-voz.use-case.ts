@@ -115,6 +115,8 @@ export class ProcessTerraVozUseCase {
       communityId: community.id,
     });
 
+    await this.communityRepository.linkUser(dto.userId, community.id);
+
     let commitmentsCreated = 0;
     for (const commitmentData of parsedLike.commitments) {
       if (!commitmentData.descripcion?.trim()) continue;
@@ -134,6 +136,7 @@ export class ProcessTerraVozUseCase {
     return {
       activity: fullActivity || activity,
       commitmentsCreated,
+      communityId: community.id,
       communityName: community.nombre,
       transcript,
       message: this.buildSuccessMessage(
