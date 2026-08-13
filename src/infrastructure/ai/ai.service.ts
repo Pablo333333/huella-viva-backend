@@ -52,6 +52,14 @@ export class AiService {
     return transcription.text;
   }
 
+  /**
+   * Parser instantáneo (heurístico local). Usado en preview para no bloquear
+   * al usuario con GPT. Whisper sigue usándose solo para transcribir audio.
+   */
+  parseActivityFast(text: string): TerraVozParsedData {
+    return this.parseActivityLocally(text);
+  }
+
   async parseActivity(text: string): Promise<TerraVozParsedData> {
     if (!process.env.OPENAI_API_KEY) {
       this.logger.warn(
@@ -62,7 +70,7 @@ export class AiService {
 
     const todayIso = new Date().toISOString();
     const response = await this.openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'gpt-4o-mini',
       messages: [
         {
           role: 'system',
@@ -72,9 +80,10 @@ Extrae la siguiente información del texto en formato JSON estricto:
 - tipo: Uno de [REUNION, INSPECCION, VISITA, TALLER, OTRO]
 - descripcion: Resumen claro de lo ocurrido o lo planificado
 - fecha: SOLO si el texto menciona una fecha explícita (hoy, mañana, día de la semana, día del mes, etc.). Si NO hay fecha, usa exactamente: ${todayIso}
-- comunidadNombre: Nombre de la comunidad/territorio si se menciona (o null)
-- commitments: Lista de objetos con { descripcion, responsable, fecha_cumplimiento (ISO o null) }
-Si no hay compromisos explícitos pero hay una reunión o visita futura, crea al menos un compromiso de seguimiento.`,
+- estado: PROGRAMADA si es futura/planificada; EJECUTADA si ya ocurrió
+- comunidadNombre: SOLO si el texto menciona explícitamente una comunidad/territorio. Si no se menciona, usa null. NUNCA inventes nombres (prohibido usar Santa Cruz u otros valores por defecto).
+- commitments: SOLO compromisos explícitos en el texto. Si no hay, devuelve [].
+No completes datos que no estén en el mensaje.`,
         },
         { role: 'user', content: text },
       ],
@@ -85,11 +94,13 @@ Si no hay compromisos explícitos pero hay una reunión o visita futura, crea al
       response.choices[0].message.content || '{}',
     ) as TerraVozParsedData;
 
+    const fecha = this.resolveActivityFecha(text, parsed.fecha);
     return {
       tipo: parsed.tipo || 'OTRO',
       descripcion: parsed.descripcion || text,
-      fecha: this.resolveActivityFecha(text, parsed.fecha),
-      comunidadNombre: parsed.comunidadNombre,
+      fecha,
+      estado: parsed.estado || this.detectEstado(text, fecha),
+      comunidadNombre: parsed.comunidadNombre || null,
       commitments: Array.isArray(parsed.commitments)
         ? parsed.commitments
         : [],
@@ -106,16 +117,43 @@ Si no hay compromisos explícitos pero hay una reunión o visita futura, crea al
     const lower = text.toLowerCase();
     const tipo = this.detectTipo(lower);
     const fecha = this.detectFecha(text, lower);
+    const fechaIso = this.resolveActivityFecha(text, fecha.toISOString());
     const comunidadNombre = this.detectComunidad(text);
     const commitments = this.detectCommitments(text, tipo, fecha);
 
     return {
       tipo,
       descripcion: text.trim(),
-      fecha: this.resolveActivityFecha(text, fecha.toISOString()),
+      fecha: fechaIso,
+      estado: this.detectEstado(text, fechaIso),
       comunidadNombre: comunidadNombre ?? undefined,
       commitments,
     };
+  }
+
+  detectEstado(text: string, fechaIso?: string | null): 'PROGRAMADA' | 'EJECUTADA' {
+    const lower = text.toLowerCase();
+    const fecha = fechaIso ? new Date(fechaIso) : null;
+    const now = new Date();
+
+    const pastWords =
+      /\b(visit[eé]|visit[oó]|estuvimos|estuve|se realiz[oó]|hicimos|hicimos|registr[eé]|cumplimos|hoy visité|ya se)\b/;
+    const futureWords =
+      /\b(se realizar[aá]|vamos a|se har[aá]|programad[oa]|pr[oó]xim[oa]|el pr[oó]ximo|mañana|queda pendiente|se program[oó])\b/;
+
+    if (fecha && !Number.isNaN(fecha.getTime()) && fecha.getTime() > now.getTime() + 60 * 60 * 1000) {
+      return 'PROGRAMADA';
+    }
+    if (futureWords.test(lower) && !pastWords.test(lower)) {
+      return 'PROGRAMADA';
+    }
+    if (pastWords.test(lower)) {
+      return 'EJECUTADA';
+    }
+    if (fecha && fecha.getTime() > now.getTime()) {
+      return 'PROGRAMADA';
+    }
+    return 'EJECUTADA';
   }
 
   /**
@@ -259,11 +297,10 @@ Si no hay compromisos explícitos pero hay una reunión o visita futura, crea al
 
   private detectCommitments(
     text: string,
-    tipo: TerraVozParsedData['tipo'],
+    _tipo: TerraVozParsedData['tipo'],
     fecha: Date,
   ): TerraVozParsedData['commitments'] {
     const commitments: TerraVozParsedData['commitments'] = [];
-    const lower = text.toLowerCase();
 
     const compromisoMatch = text.match(
       /compromiso[:\s]+([^.;]+)(?:[.;]|$)/i,
@@ -283,25 +320,6 @@ Si no hay compromisos explícitos pero hay una reunión o visita futura, crea al
       commitments.push({
         descripcion: `Entregar ${entregaMatch[1].trim()}`,
         responsable: 'Equipo territorial',
-        fecha_cumplimiento: fecha.toISOString(),
-      });
-    }
-
-    if (commitments.length === 0 && (tipo === 'REUNION' || tipo === 'VISITA')) {
-      commitments.push({
-        descripcion:
-          tipo === 'REUNION'
-            ? 'Confirmar asistencia y levantar acta de la reunión'
-            : 'Registrar hallazgos y seguimiento de la visita',
-        responsable: 'Gestor Social Territorial',
-        fecha_cumplimiento: fecha.toISOString(),
-      });
-    }
-
-    if (/con la comunidad|multiactor|articulaci[oó]n/.test(lower) && commitments.length === 0) {
-      commitments.push({
-        descripcion: 'Articulación multiactor con la comunidad',
-        responsable: 'Representante comunitario',
         fecha_cumplimiento: fecha.toISOString(),
       });
     }

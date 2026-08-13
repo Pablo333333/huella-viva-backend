@@ -3,6 +3,11 @@ import { IActivityRepository } from '../../../domain/repositories/activity.repos
 import { ICommitmentRepository } from '../../../domain/repositories/commitment.repository.interface';
 import { ICommunityRepository } from '../../../domain/repositories/community.repository.interface';
 
+export interface DashboardMetricsFilters {
+  communityId?: string;
+  userId?: string;
+}
+
 @Injectable()
 export class GetDashboardMetricsUseCase {
   constructor(
@@ -14,45 +19,63 @@ export class GetDashboardMetricsUseCase {
     private readonly communityRepository: ICommunityRepository,
   ) {}
 
-  async execute() {
-    const activities = await this.activityRepository.findAll();
-    const communities = await this.communityRepository.findAll();
-    
-    // Obtenemos todos los compromisos de todas las actividades
-    let allCommitments = [];
+  async execute(filters: DashboardMetricsFilters = {}) {
+    const activities = await this.activityRepository.findAll({
+      communityId: filters.communityId,
+      userId: filters.communityId ? undefined : filters.userId,
+    });
+    const catalogCommunities = await this.communityRepository.findAll();
+
+    const allCommitments = [];
     for (const activity of activities) {
       const commitments = await this.commitmentRepository.findByActivityId(activity.id);
       allCommitments.push(...commitments);
     }
 
     const totalActivities = activities.length;
-    const totalCommunities = communities.length;
-    
-    const fulfilledCommitments = allCommitments.filter(c => c.estado === 'CUMPLIDO').length;
-    const totalCommitments = allCommitments.length;
-    
-    const confidenceIndex = totalCommitments > 0 
-      ? Math.round((fulfilledCommitments / totalCommitments) * 100) 
-      : 0;
+    const programadasCount = activities.filter((a) => a.estado === 'PROGRAMADA').length;
+    const ejecutadasCount = activities.filter((a) => a.estado === 'EJECUTADA').length;
 
-    // Distribución de actividades por tipo
+    const activeCommunityIds = new Set(activities.map((a) => a.communityId));
+    const totalCommunities = filters.communityId
+      ? Math.max(activeCommunityIds.size, filters.communityId ? 1 : 0)
+      : catalogCommunities.length;
+    const activeCommunities = activeCommunityIds.size;
+
+    const fulfilledCommitments = allCommitments.filter((c) => c.estado === 'CUMPLIDO').length;
+    const totalCommitments = allCommitments.length;
+    const hitos = fulfilledCommitments;
+
+    const confidenceIndex =
+      totalCommitments > 0
+        ? Math.round((fulfilledCommitments / totalCommitments) * 100)
+        : 0;
+
     const activityTypes = {
-      REUNION: activities.filter(a => a.tipo === 'REUNION').length,
-      VISITA: activities.filter(a => a.tipo === 'VISITA').length,
-      INSPECCION: activities.filter(a => a.tipo === 'INSPECCION').length,
-      TALLER: activities.filter(a => a.tipo === 'TALLER').length,
+      REUNION: activities.filter((a) => a.tipo === 'REUNION').length,
+      VISITA: activities.filter((a) => a.tipo === 'VISITA').length,
+      INSPECCION: activities.filter((a) => a.tipo === 'INSPECCION').length,
+      TALLER: activities.filter((a) => a.tipo === 'TALLER').length,
+      OTRO: activities.filter((a) => a.tipo === 'OTRO').length,
     };
 
     return {
       kpis: {
         totalActivities,
+        programadasCount,
+        ejecutadasCount,
         totalCommunities,
+        activeCommunities,
         totalCommitments,
         fulfilledCommitments,
+        hitos,
         confidenceIndex,
       },
-      distribution: Object.entries(activityTypes).map(([name, value]) => ({ name, value })),
-      recentActivitiesCount: activities.filter(a => {
+      distribution: Object.entries(activityTypes).map(([name, value]) => ({
+        name,
+        value,
+      })),
+      recentActivitiesCount: activities.filter((a) => {
         const weekAgo = new Date();
         weekAgo.setDate(weekAgo.getDate() - 7);
         return new Date(a.fecha) >= weekAgo;

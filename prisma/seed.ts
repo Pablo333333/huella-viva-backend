@@ -17,32 +17,59 @@ async function main() {
   await prisma.activity.deleteMany();
   await prisma.investment.deleteMany();
   await prisma.project.deleteMany();
-  await prisma.community.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.community.deleteMany();
 
-  // 2. Crear usuarios por rol (contraseña: 1234)
+  // 2. Comunidades con coordenadas reales (Colombia)
   const hashedPassword = await bcrypt.hash('1234', 10);
 
+  const elRoble = await prisma.community.create({
+    data: {
+      nombre: 'Comunidad El Roble',
+      poblacion: 450,
+      location: 4.6097,
+      latitude: 4.6097,
+      longitude: -74.0817,
+    },
+  });
+
+  const sanJose = await prisma.community.create({
+    data: {
+      nombre: 'San José del Guaviare',
+      poblacion: 1200,
+      location: 2.5689,
+      latitude: 2.5689,
+      longitude: -72.6459,
+    },
+  });
+
+  console.log('Comunidades creadas correctamente.');
+
+  // 3. Usuarios por rol (contraseña: 1234)
   const users = [
     {
       email: 'admin@test.com',
       name: 'Gestor Social Territorial',
       role: Role.ADMIN_TERRITORIAL,
+      communityId: null as string | null,
     },
     {
       email: 'empresa@test.com',
       name: 'Actor Corporativo',
       role: Role.EMPRESA,
+      communityId: null,
     },
     {
       email: 'estado@test.com',
       name: 'Representante Gubernamental',
       role: Role.ESTADO,
+      communityId: null,
     },
     {
       email: 'comunidad@test.com',
       name: 'Liderazgo Comunal',
       role: Role.COMUNIDAD,
+      communityId: elRoble.id,
     },
   ];
 
@@ -54,6 +81,7 @@ async function main() {
           password: hashedPassword,
           name: user.name,
           role: user.role,
+          communityId: user.communityId,
         },
       }),
     ),
@@ -65,26 +93,7 @@ async function main() {
   console.log('Usuarios creados:');
   createdUsers.forEach((u) => console.log(`  - ${u.email} [${u.role}]`));
 
-  // 3. Crear Comunidades
-  const elRoble = await prisma.community.create({
-    data: {
-      nombre: 'Comunidad El Roble',
-      poblacion: 450,
-      location: 4.6097,
-    },
-  });
-
-  const sanJose = await prisma.community.create({
-    data: {
-      nombre: 'San José del Guaviare',
-      poblacion: 1200,
-      location: 2.5678,
-    },
-  });
-
-  console.log('Comunidades creadas correctamente.');
-
-  // 4. Crear Proyectos
+  // 4. Proyectos
   await prisma.project.create({
     data: {
       nombre: 'Construcción Pozo de Agua',
@@ -109,15 +118,19 @@ async function main() {
 
   console.log('Proyectos creados correctamente.');
 
-  // 5. Crear Actividades (Memoria Viva)
-  const reunion1 = await prisma.activity.create({
+  // 5. Actividades (programada + ejecutada)
+  const reunionProgramada = await prisma.activity.create({
     data: {
       tipo: 'REUNION',
       descripcion:
         'Reunión inicial para coordinar la entrega de materiales del pozo.',
+      estado: 'PROGRAMADA',
+      fecha: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
       userId: admin.id,
       communityId: elRoble.id,
       location: 4.6097,
+      latitude: 4.6097,
+      longitude: -74.0817,
     },
   });
 
@@ -125,24 +138,40 @@ async function main() {
     data: {
       tipo: 'VISITA',
       descripcion: 'Visita de seguimiento a compromisos locales.',
+      estado: 'EJECUTADA',
+      fecha: new Date(),
       userId: comunidadUser.id,
       communityId: elRoble.id,
       location: 4.6097,
+      latitude: 4.6097,
+      longitude: -74.0817,
+    },
+  });
+
+  await prisma.activity.create({
+    data: {
+      tipo: 'TALLER',
+      descripcion: 'Taller de operación del pozo realizado con la comunidad.',
+      estado: 'EJECUTADA',
+      fecha: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+      userId: admin.id,
+      communityId: sanJose.id,
+      location: 2.5689,
+      latitude: 2.5689,
+      longitude: -72.6459,
     },
   });
 
   console.log('Actividades creadas correctamente.');
 
-  // 6. Crear Compromisos
+  // 6. Compromisos / hitos
   await prisma.commitment.create({
     data: {
       descripcion: 'Entrega de 50 metros de tubería PVC',
       responsable: 'Gestor Social Territorial',
       estado: 'PROGRAMADO',
-      activityId: reunion1.id,
-      fecha_cumplimiento: new Date(
-        new Date().getTime() + 7 * 24 * 60 * 60 * 1000,
-      ),
+      activityId: reunionProgramada.id,
+      fecha_cumplimiento: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     },
   });
 

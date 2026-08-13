@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { GetDashboardMetricsUseCase } from '../../application/use-cases/dashboard/get-dashboard-metrics.use-case';
 
 @Controller('dashboard')
@@ -8,7 +8,10 @@ export class DashboardController {
   ) {}
 
   @Get('metrics')
-  async getMetrics() {
-    return this.getDashboardMetricsUseCase.execute();
+  async getMetrics(
+    @Query('communityId') communityId?: string,
+    @Query('userId') userId?: string,
+  ) {
+    return this.getDashboardMetricsUseCase.execute({ communityId, userId });
   }
 }

@@ -3,6 +3,27 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ICommunityRepository } from '../../domain/repositories/community.repository.interface';
 import { Community } from '../../domain/entities/community.entity';
 
+const DEFAULT_MAX_DISTANCE_KM = 80;
+
+function toRad(value: number): number {
+  return (value * Math.PI) / 180;
+}
+
+function haversineKm(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+): number {
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
 @Injectable()
 export class PrismaCommunityRepository implements ICommunityRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -12,7 +33,9 @@ export class PrismaCommunityRepository implements ICommunityRepository {
       data: {
         nombre: community.nombre!,
         poblacion: community.poblacion || 0,
-        location: community.location,
+        location: community.location ?? community.latitude ?? null,
+        latitude: community.latitude ?? community.location ?? null,
+        longitude: community.longitude ?? null,
         boundary: community.boundary,
       },
     });
@@ -30,7 +53,37 @@ export class PrismaCommunityRepository implements ICommunityRepository {
     const communities = await this.prisma.community.findMany({
       orderBy: { nombre: 'asc' },
     });
-    return communities.map(c => new Community(c));
+    return communities.map((c) => new Community(c));
+  }
+
+  async findNearest(
+    latitude: number,
+    longitude: number,
+    maxDistanceKm = DEFAULT_MAX_DISTANCE_KM,
+  ): Promise<Community | null> {
+    const communities = await this.findAll();
+    let nearest: { community: Community; distance: number } | null = null;
+
+    for (const community of communities) {
+      const lat = community.latitude ?? community.location ?? null;
+      const lng = community.longitude ?? null;
+      if (
+        typeof lat !== 'number' ||
+        typeof lng !== 'number' ||
+        !Number.isFinite(lat) ||
+        !Number.isFinite(lng)
+      ) {
+        continue;
+      }
+
+      const distance = haversineKm(latitude, longitude, lat, lng);
+      if (distance > maxDistanceKm) continue;
+      if (!nearest || distance < nearest.distance) {
+        nearest = { community, distance };
+      }
+    }
+
+    return nearest?.community ?? null;
   }
 
   async update(id: string, community: Partial<Community>): Promise<Community> {
@@ -39,7 +92,9 @@ export class PrismaCommunityRepository implements ICommunityRepository {
       data: {
         nombre: community.nombre,
         poblacion: community.poblacion,
-        location: community.location,
+        location: community.location ?? community.latitude,
+        latitude: community.latitude,
+        longitude: community.longitude,
         boundary: community.boundary,
       },
     });

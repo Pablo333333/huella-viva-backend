@@ -6,8 +6,10 @@ export class Community {
   id: string;
   nombre: string;
   poblacion: number;
-  location?: number | null; // Float temporal
-  boundary?: string | null; // String temporal
+  location?: number | null; // Legacy lat
+  latitude?: number | null;
+  longitude?: number | null;
+  boundary?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

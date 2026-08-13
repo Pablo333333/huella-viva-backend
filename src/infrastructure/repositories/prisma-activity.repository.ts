@@ -1,7 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { IActivityRepository } from '../../domain/repositories/activity.repository.interface';
-import { Activity, ActivityType } from '../../domain/entities/activity.entity';
+import { Activity } from '../../domain/entities/activity.entity';
+
+const activityInclude = {
+  commitments: true,
+  community: true,
+} as const;
+
+function toActivity(record: any): Activity {
+  return new Activity({
+    ...record,
+    communityName: record.community?.nombre,
+    commitments: record.commitments,
+  });
+}
 
 @Injectable()
 export class PrismaActivityRepository implements IActivityRepository {
@@ -13,6 +26,7 @@ export class PrismaActivityRepository implements IActivityRepository {
         tipo: (activity.tipo as any) || 'VISITA',
         descripcion: activity.descripcion!,
         fecha: activity.fecha || new Date(),
+        estado: (activity.estado as any) || 'EJECUTADA',
         audioUrl: activity.audioUrl,
         fotoUrl: activity.fotoUrl,
         location: activity.location ?? activity.latitude ?? null,
@@ -21,34 +35,37 @@ export class PrismaActivityRepository implements IActivityRepository {
         userId: activity.userId!,
         communityId: activity.communityId!,
       },
+      include: activityInclude,
     });
-    return new Activity(created as any);
+    return toActivity(created);
   }
 
   async findById(id: string): Promise<Activity | null> {
     const activity = await this.prisma.activity.findUnique({
       where: { id },
-      include: {
-        commitments: true,
-      },
+      include: activityInclude,
     });
-    return activity ? new Activity(activity as any) : null;
+    return activity ? toActivity(activity) : null;
   }
 
-  async findAll(filters?: { communityId?: string; userId?: string; type?: string }): Promise<Activity[]> {
+  async findAll(filters?: {
+    communityId?: string;
+    userId?: string;
+    type?: string;
+    estado?: string;
+  }): Promise<Activity[]> {
     const where: any = {};
     if (filters?.communityId) where.communityId = filters.communityId;
     if (filters?.userId) where.userId = filters.userId;
     if (filters?.type) where.tipo = filters.type as any;
+    if (filters?.estado) where.estado = filters.estado as any;
 
     const activities = await this.prisma.activity.findMany({
       where,
-      include: {
-        commitments: true,
-      },
+      include: activityInclude,
       orderBy: { fecha: 'desc' },
     });
-    return activities.map(a => new Activity(a as any));
+    return activities.map(toActivity);
   }
 
   async update(id: string, activity: Partial<Activity>): Promise<Activity> {
@@ -58,14 +75,17 @@ export class PrismaActivityRepository implements IActivityRepository {
         tipo: activity.tipo as any,
         descripcion: activity.descripcion,
         fecha: activity.fecha,
+        estado: activity.estado as any,
         audioUrl: activity.audioUrl,
         fotoUrl: activity.fotoUrl,
         location: activity.location ?? activity.latitude,
         latitude: activity.latitude,
         longitude: activity.longitude,
+        communityId: activity.communityId,
       },
+      include: activityInclude,
     });
-    return new Activity(updated as any);
+    return toActivity(updated);
   }
 
   async delete(id: string): Promise<void> {
@@ -77,11 +97,9 @@ export class PrismaActivityRepository implements IActivityRepository {
   async getTimeline(communityId: string): Promise<Activity[]> {
     const activities = await this.prisma.activity.findMany({
       where: { communityId },
-      include: {
-        commitments: true,
-      },
+      include: activityInclude,
       orderBy: { fecha: 'asc' },
     });
-    return activities.map(a => new Activity(a as any));
+    return activities.map(toActivity);
   }
 }

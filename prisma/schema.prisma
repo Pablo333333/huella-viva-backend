@@ -40,6 +40,11 @@ enum ActivityType {
   OTRO
 }
 
+enum ActivityStatus {
+  PROGRAMADA
+  EJECUTADA
+}
+
 enum CommitmentStatus {
   PROGRAMADO
   EN_PROCESO
@@ -47,15 +52,17 @@ enum CommitmentStatus {
 }
 
 model User {
-  id         String     @id @default(uuid())
-  email      String     @unique
-  password   String
-  name       String?
-  role       Role       @default(COMUNIDAD)
-  pushToken  String?
-  activities Activity[]
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  id          String     @id @default(uuid())
+  email       String     @unique
+  password    String
+  name        String?
+  role        Role       @default(COMUNIDAD)
+  pushToken   String?
+  communityId String?
+  community   Community? @relation(fields: [communityId], references: [id])
+  activities  Activity[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 }
 
 model Community {
@@ -63,8 +70,11 @@ model Community {
   nombre     String
   poblacion  Int        @default(0)
   // Usamos Unsupported para tipos geográficos de PostGIS
-  location   Float? // Temporal hasta activar PostGIS
+  location   Float? // Legacy: latitud aproximada
+  latitude   Float?
+  longitude  Float?
   boundary   String? // Temporal hasta activar PostGIS
+  users      User[]
   activities Activity[]
   projects   Project[]
   createdAt  DateTime   @default(now())
@@ -97,24 +107,25 @@ model Investment {
 }
 
 model Activity {
-  id          String       @id @default(uuid())
-  tipo        ActivityType @default(VISITA)
+  id          String         @id @default(uuid())
+  tipo        ActivityType   @default(VISITA)
   descripcion String
-  fecha       DateTime     @default(now())
+  fecha       DateTime       @default(now())
+  estado      ActivityStatus @default(EJECUTADA)
   audioUrl    String?
   fotoUrl     String?
   location    Float? // Legacy: latitud aproximada
   latitude    Float? // GPS real del dispositivo
   longitude   Float? // GPS real del dispositivo
-  
-  user        User         @relation(fields: [userId], references: [id])
+
+  user        User           @relation(fields: [userId], references: [id])
   userId      String
-  community   Community    @relation(fields: [communityId], references: [id])
+  community   Community      @relation(fields: [communityId], references: [id])
   communityId String
-  
+
   commitments Commitment[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 }
 
 model Commitment {
