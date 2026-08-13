@@ -25,11 +25,14 @@ async function bootstrap() {
     credentials: true,
   });
   
-  // Habilitar validación global para DTOs
+  // whitelist: recorta campos desconocidos.
+  // forbidNonWhitelisted: false → multipart (Terra Voz / audio) no debe
+  // devolver 400 por campos extra como gpsPlaceName.
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,
-    forbidNonWhitelisted: true,
+    forbidNonWhitelisted: false,
     transform: true,
+    transformOptions: { enableImplicitConversion: true },
   }));
 
   // Servir archivos estáticos desde la carpeta uploads

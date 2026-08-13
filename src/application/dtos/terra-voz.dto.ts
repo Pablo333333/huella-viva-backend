@@ -1,4 +1,5 @@
 import {
+  Allow,
   IsString,
   IsOptional,
   IsNotEmpty,
@@ -27,6 +28,16 @@ export class ProcessTerraVozDto {
   @IsString()
   @IsOptional()
   communityId?: string;
+
+  /** Nombre de lugar obtenido por geocodificación inversa del GPS (cliente). */
+  @Allow()
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => {
+    if (value === '' || value === null || value === undefined) return undefined;
+    return String(value);
+  })
+  gpsPlaceName?: string;
 
   @IsString()
   @IsNotEmpty()
@@ -80,9 +91,14 @@ export class ConfirmTerraVozDto {
   @IsIn(['PROGRAMADA', 'EJECUTADA'])
   estado: 'PROGRAMADA' | 'EJECUTADA';
 
+  /** Nombre libre extraído del audio / GPS / transcripción (editable). */
   @IsString()
   @IsNotEmpty()
-  communityId: string;
+  comunidadNombre: string;
+
+  @IsString()
+  @IsOptional()
+  communityId?: string;
 
   @IsString()
   @IsNotEmpty()
@@ -135,17 +151,14 @@ export interface TerraVozValidation {
   issues: string[];
 }
 
-export interface TerraVozCommunityOption {
-  id: string;
-  nombre: string;
-}
+export type TerraVozLocationSource = 'name' | 'gps' | 'transcript' | 'none';
 
 export interface TerraVozPreviewResult {
   transcript: string;
   parsed: TerraVozParsedData;
-  suggestedCommunity: TerraVozCommunityOption | null;
-  communitySource: 'name' | 'gps' | 'user' | 'none';
-  communities: TerraVozCommunityOption[];
+  /** Texto libre de comunidad/ubicación para mostrar y editar. */
+  ubicacionTexto: string;
+  communitySource: TerraVozLocationSource;
   validation: TerraVozValidation;
   latitude?: number | null;
   longitude?: number | null;

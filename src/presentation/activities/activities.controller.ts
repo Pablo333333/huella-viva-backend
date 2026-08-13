@@ -8,6 +8,8 @@ import {
   Param,
   Query,
   Patch,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Inject } from '@nestjs/common';
@@ -33,6 +35,14 @@ export class ActivitiesController {
 
   @Post('terra-voz/preview')
   @UseInterceptors(FileInterceptor('audio'))
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: false,
+      transform: true,
+      transformOptions: { enableImplicitConversion: true },
+    }),
+  )
   async previewTerraVoz(
     @Body() dto: ProcessTerraVozDto,
     @UploadedFile() audioFile?: Express.Multer.File,
@@ -48,6 +58,14 @@ export class ActivitiesController {
   /** Compatibilidad: preview + confirm automático (no recomendado). */
   @Post('terra-voz')
   @UseInterceptors(FileInterceptor('audio'))
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: false,
+      transform: true,
+      transformOptions: { enableImplicitConversion: true },
+    }),
+  )
   async processTerraVoz(
     @Body() dto: ProcessTerraVozDto,
     @UploadedFile() audioFile?: Express.Multer.File,
@@ -56,7 +74,7 @@ export class ActivitiesController {
       dto,
       audioFile?.buffer,
     );
-    if (!preview.validation.complete || !preview.suggestedCommunity) {
+    if (!preview.validation.complete || !preview.ubicacionTexto) {
       return preview;
     }
     return this.processTerraVozUseCase.confirm({
@@ -65,7 +83,7 @@ export class ActivitiesController {
       descripcion: preview.parsed.descripcion,
       fecha: preview.parsed.fecha,
       estado: preview.parsed.estado,
-      communityId: preview.suggestedCommunity.id,
+      comunidadNombre: preview.ubicacionTexto,
       userId: dto.userId,
       latitude: dto.latitude,
       longitude: dto.longitude,

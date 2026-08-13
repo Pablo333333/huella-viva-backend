@@ -81,7 +81,7 @@ Extrae la siguiente información del texto en formato JSON estricto:
 - descripcion: Resumen claro de lo ocurrido o lo planificado
 - fecha: SOLO si el texto menciona una fecha explícita (hoy, mañana, día de la semana, día del mes, etc.). Si NO hay fecha, usa exactamente: ${todayIso}
 - estado: PROGRAMADA si es futura/planificada; EJECUTADA si ya ocurrió
-- comunidadNombre: SOLO si el texto menciona explícitamente una comunidad/territorio. Si no se menciona, usa null. NUNCA inventes nombres (prohibido usar Santa Cruz u otros valores por defecto).
+- comunidadNombre: lugar mencionado en el texto (ciudad, comunidad, barrio, vereda, municipio o país, de cualquier parte del mundo). Copia el nombre tal cual. Si NO se menciona ningún lugar, usa null. NUNCA inventes ni uses un catálogo fijo.
 - commitments: SOLO compromisos explícitos en el texto. Si no hay, devuelve [].
 No completes datos que no estén en el mensaje.`,
         },
@@ -281,17 +281,43 @@ No completes datos que no estén en el mensaje.`,
   }
 
   private detectComunidad(text: string): string | null {
+    const stop = new Set([
+      'la', 'el', 'los', 'las', 'un', 'una', 'unos', 'unas', 'de', 'del', 'al',
+      'pozo', 'reunion', 'reunión', 'taller', 'visita', 'inspeccion', 'inspección',
+      'actividad', 'terreno', 'campo', 'sitio', 'lugar', 'comunidad', 'hoy',
+      'mañana', 'casa', 'oficina', 'proyecto', 'avance', 'seguimiento',
+      'compromiso', 'materiales', 'tuberia', 'tubería', 'agua', 'escuela',
+    ]);
+
+    const cleanCandidate = (raw?: string | null): string | null => {
+      if (!raw) return null;
+      const value = raw
+        .replace(/[.,;:!?]+$/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (value.length < 2) return null;
+      const tokens = value
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .split(/\s+/)
+        .filter(Boolean);
+      if (tokens.length === 0 || tokens.every((t) => stop.has(t))) return null;
+      return value;
+    };
+
     const patterns = [
-      /(?:en|comunidad(?:\s+de)?|visit[eé]\s+(?:la\s+comunidad\s+)?|visit[oó]\s+(?:la\s+comunidad\s+)?)\s+([A-ZÁÉÍÓÚÑ][\wÁÉÍÓÚáéíóúñ\s]{1,40}?)(?:\s+con|\s+para|\s+a\s+las|[.,]|$)/i,
-      /(?:vistoso|san pedro|el roble|san jos[eé](?:\s+del\s+guaviare)?)/i,
+      /(?:comunidad(?:\s+ind[ií]gena)?(?:\s+de|\s+del|\s+de\s+la)?)\s+([^.,;]+?)(?:\s+con|\s+para|\s+a\s+las|[.,;]|$)/i,
+      /(?:ciudad(?:\s+de)?|municipio(?:\s+de)?|barrio|vereda|corregimiento|distrito(?:\s+de)?|pueblo(?:\s+de)?)\s+([^.,;]+?)(?:\s+con|\s+para|\s+a\s+las|[.,;]|$)/i,
+      /(?:en|desde|hacia|hasta|visité|visite|visitó|visito|estuve\s+en|estuvimos\s+en|fuimos\s+a|fui\s+a|llegué\s+a|llegamos\s+a)\s+(?:la\s+comunidad\s+(?:de\s+)?|el\s+municipio\s+de\s+|la\s+ciudad\s+de\s+|el\s+barrio\s+(?:de\s+)?)?([A-Za-zÁÉÍÓÚÜÑáéíóúüñ][\wÁÉÍÓÚáéíóúñü''.\-]{1,40}(?:\s+(?:de|del|la|el|los|las|san|santa|santo)\s+[A-Za-zÁÉÍÓÚÜÑáéíóúüñ][\wÁÉÍÓÚáéíóúñü''.\-]{1,30}|\s+[A-Za-zÁÉÍÓÚÜÑáéíóúüñ][\wÁÉÍÓÚáéíóúñü''.\-]{1,30}){0,5})(?:\s+con|\s+para|\s+a\s+las|[.,;]|$)/i,
     ];
 
     for (const pattern of patterns) {
       const match = text.match(pattern);
-      if (match) {
-        return (match[1] || match[0]).trim();
-      }
+      const candidate = cleanCandidate(match?.[1]);
+      if (candidate) return candidate;
     }
+
     return null;
   }
 

@@ -11,13 +11,12 @@ import { Community } from '../../domain/entities/community.entity';
 import {
   ConfirmTerraVozDto,
   ProcessTerraVozDto,
+  TerraVozLocationSource,
   TerraVozParsedData,
   TerraVozPreviewResult,
   TerraVozResult,
   TerraVozValidation,
 } from '../dtos/terra-voz.dto';
-
-type CommunitySource = 'name' | 'gps' | 'user' | 'none';
 
 @Injectable()
 export class ProcessTerraVozUseCase {
@@ -37,27 +36,22 @@ export class ProcessTerraVozUseCase {
   ): Promise<TerraVozPreviewResult> {
     const transcript = await this.resolveTranscript(dto, audioBuffer);
     const parsedData = this.aiService.parseActivityFast(transcript);
-    const communities = await this.communityRepository.findAll();
-
-    const { community, source } = await this.resolveCommunity({
-      communityId: dto.communityId,
-      comunidadNombre: parsedData.comunidadNombre,
+    const { ubicacionTexto, source } = this.resolveUbicacionTexto({
+      parsedName: parsedData.comunidadNombre,
       transcript,
+      gpsPlaceName: dto.gpsPlaceName,
       latitude: dto.latitude,
       longitude: dto.longitude,
-      communities,
     });
 
-    const validation = this.validateMessage(transcript, parsedData, community);
+    parsedData.comunidadNombre = ubicacionTexto || parsedData.comunidadNombre || null;
+    const validation = this.validateMessage(transcript, parsedData, ubicacionTexto);
 
     return {
       transcript,
       parsed: parsedData,
-      suggestedCommunity: community
-        ? { id: community.id, nombre: community.nombre }
-        : null,
+      ubicacionTexto,
       communitySource: source,
-      communities: communities.map((c) => ({ id: c.id, nombre: c.nombre })),
       validation,
       latitude: dto.latitude ?? null,
       longitude: dto.longitude ?? null,
@@ -74,9 +68,9 @@ export class ProcessTerraVozUseCase {
       throw new BadRequestException('El mensaje no puede estar vacío.');
     }
 
-    const community = await this.communityRepository.findById(dto.communityId);
-    if (!community) {
-      throw new BadRequestException('Selecciona una comunidad válida.');
+    const comunidadNombre = dto.comunidadNombre?.trim();
+    if (!comunidadNombre) {
+      throw new BadRequestException('Indica la comunidad o ubicación.');
     }
 
     const parsedLike: TerraVozParsedData = {
@@ -84,7 +78,7 @@ export class ProcessTerraVozUseCase {
       descripcion: dto.descripcion,
       fecha: dto.fecha,
       estado: dto.estado,
-      comunidadNombre: community.nombre,
+      comunidadNombre,
       commitments: (dto.commitments || []).map((c) => ({
         descripcion: c.descripcion,
         responsable: c.responsable || 'Equipo territorial',
@@ -92,7 +86,7 @@ export class ProcessTerraVozUseCase {
       })),
     };
 
-    const validation = this.validateMessage(transcript, parsedLike, community);
+    const validation = this.validateMessage(transcript, parsedLike, comunidadNombre);
     if (!validation.complete) {
       throw new BadRequestException(validation.issues.join(' '));
     }
@@ -102,6 +96,12 @@ export class ProcessTerraVozUseCase {
       typeof dto.longitude === 'number' &&
       Number.isFinite(dto.latitude) &&
       Number.isFinite(dto.longitude);
+
+    const community = await this.resolveOrCreateCommunity(
+      comunidadNombre,
+      hasGps ? dto.latitude : null,
+      hasGps ? dto.longitude : null,
+    );
 
     const activity = await this.activityRepository.create({
       tipo: dto.tipo,
@@ -145,6 +145,73 @@ export class ProcessTerraVozUseCase {
     };
   }
 
+  private resolveUbicacionTexto(params: {
+    parsedName?: string | null;
+    transcript: string;
+    gpsPlaceName?: string;
+    latitude?: number;
+    longitude?: number;
+  }): { ubicacionTexto: string; source: TerraVozLocationSource } {
+    const fromAudio = params.parsedName?.trim();
+    if (fromAudio) {
+      return { ubicacionTexto: fromAudio, source: 'name' };
+    }
+
+    const fromGps = params.gpsPlaceName?.trim();
+    if (fromGps) {
+      return { ubicacionTexto: fromGps, source: 'gps' };
+    }
+
+    const hasGps =
+      typeof params.latitude === 'number' &&
+      typeof params.longitude === 'number' &&
+      Number.isFinite(params.latitude) &&
+      Number.isFinite(params.longitude);
+    if (hasGps) {
+      return {
+        ubicacionTexto: `${params.latitude!.toFixed(5)}, ${params.longitude!.toFixed(5)}`,
+        source: 'gps',
+      };
+    }
+
+    const fromTranscript = params.transcript.trim();
+    if (fromTranscript) {
+      return { ubicacionTexto: fromTranscript, source: 'transcript' };
+    }
+
+    return { ubicacionTexto: '', source: 'none' };
+  }
+
+  private async resolveOrCreateCommunity(
+    nombre: string,
+    latitude?: number | null,
+    longitude?: number | null,
+  ): Promise<Community> {
+    const existing = await this.communityRepository.findByNombre(nombre);
+    if (existing) {
+      if (
+        (existing.latitude == null || existing.longitude == null) &&
+        typeof latitude === 'number' &&
+        typeof longitude === 'number'
+      ) {
+        return this.communityRepository.update(existing.id, {
+          latitude,
+          longitude,
+          location: latitude,
+        });
+      }
+      return existing;
+    }
+
+    return this.communityRepository.create({
+      nombre,
+      poblacion: 0,
+      latitude: latitude ?? null,
+      longitude: longitude ?? null,
+      location: latitude ?? null,
+    });
+  }
+
   private async resolveTranscript(
     dto: ProcessTerraVozDto,
     audioBuffer?: Buffer,
@@ -171,7 +238,7 @@ export class ProcessTerraVozUseCase {
   private validateMessage(
     transcript: string,
     parsed: TerraVozParsedData,
-    community: Community | null,
+    ubicacionTexto?: string | null,
   ): TerraVozValidation {
     const issues: string[] = [];
     const words = transcript
@@ -192,8 +259,8 @@ export class ProcessTerraVozUseCase {
       issues.push('No se pudo identificar el tipo de actividad.');
     }
 
-    if (!community) {
-      issues.push('Selecciona la comunidad antes de enviar.');
+    if (!ubicacionTexto || ubicacionTexto.trim().length < 2) {
+      issues.push('Indica la comunidad o ubicación antes de enviar.');
     }
 
     if (
@@ -206,109 +273,6 @@ export class ProcessTerraVozUseCase {
       complete: issues.length === 0,
       issues,
     };
-  }
-
-  private async resolveCommunity(params: {
-    communityId?: string;
-    comunidadNombre?: string | null;
-    transcript: string;
-    latitude?: number;
-    longitude?: number;
-    communities: Community[];
-  }): Promise<{ community: Community | null; source: CommunitySource }> {
-    const { communities, transcript, comunidadNombre, communityId, latitude, longitude } =
-      params;
-
-    if (!communities.length) {
-      return { community: null, source: 'none' };
-    }
-
-    const byTranscriptName = this.matchCommunityInText(communities, transcript);
-    if (byTranscriptName) {
-      return { community: byTranscriptName, source: 'name' };
-    }
-
-    if (comunidadNombre) {
-      const byParsedName = this.matchCommunityByName(communities, comunidadNombre);
-      if (byParsedName) {
-        return { community: byParsedName, source: 'name' };
-      }
-    }
-
-    const hasGps =
-      typeof latitude === 'number' &&
-      typeof longitude === 'number' &&
-      Number.isFinite(latitude) &&
-      Number.isFinite(longitude);
-
-    if (hasGps) {
-      const nearest = await this.communityRepository.findNearest(
-        latitude!,
-        longitude!,
-      );
-      if (nearest) {
-        return { community: nearest, source: 'gps' };
-      }
-    }
-
-    if (communityId) {
-      const byUser = communities.find((c) => c.id === communityId) || null;
-      if (byUser) {
-        return { community: byUser, source: 'user' };
-      }
-    }
-
-    return { community: null, source: 'none' };
-  }
-
-  private matchCommunityInText(
-    communities: Community[],
-    transcript: string,
-  ): Community | null {
-    const haystack = this.normalize(transcript);
-    let best: { community: Community; score: number } | null = null;
-
-    for (const community of communities) {
-      const name = this.normalize(community.nombre);
-      if (!name || name.length < 3) continue;
-      if (haystack.includes(name) || name.split(' ').every((part) => haystack.includes(part))) {
-        const score = name.length;
-        if (!best || score > best.score) {
-          best = { community, score };
-        }
-      }
-    }
-
-    return best?.community ?? null;
-  }
-
-  private matchCommunityByName(
-    communities: Community[],
-    comunidadNombre: string,
-  ): Community | null {
-    const needle = this.normalize(comunidadNombre);
-    if (!needle || needle.length < 3) return null;
-
-    const exact = communities.find((c) => this.normalize(c.nombre) === needle);
-    if (exact) return exact;
-
-    return (
-      communities.find((c) => {
-        const name = this.normalize(c.nombre);
-        return name.includes(needle) || needle.includes(name);
-      }) || null
-    );
-  }
-
-  private normalize(value: string): string {
-    return value
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/comunidad\s+/g, '')
-      .replace(/[^a-z0-9\s]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
   }
 
   private buildSuccessMessage(

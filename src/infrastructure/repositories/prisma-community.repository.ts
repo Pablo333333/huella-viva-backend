@@ -49,6 +49,33 @@ export class PrismaCommunityRepository implements ICommunityRepository {
     return community ? new Community(community) : null;
   }
 
+  async findByNombre(nombre: string): Promise<Community | null> {
+    const needle = this.normalizeName(nombre);
+    if (!needle) return null;
+
+    const communities = await this.findAll();
+    const exact = communities.find((c) => this.normalizeName(c.nombre) === needle);
+    if (exact) return exact;
+
+    return (
+      communities.find((c) => {
+        const name = this.normalizeName(c.nombre);
+        return name.length >= 3 && (name === needle || needle === name);
+      }) || null
+    );
+  }
+
+  private normalizeName(value: string): string {
+    return value
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/comunidad\s+/g, '')
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   async findAll(): Promise<Community[]> {
     const communities = await this.prisma.community.findMany({
       orderBy: { nombre: 'asc' },
@@ -90,12 +117,14 @@ export class PrismaCommunityRepository implements ICommunityRepository {
     const updated = await this.prisma.community.update({
       where: { id },
       data: {
-        nombre: community.nombre,
-        poblacion: community.poblacion,
-        location: community.location ?? community.latitude,
-        latitude: community.latitude,
-        longitude: community.longitude,
-        boundary: community.boundary,
+        ...(community.nombre !== undefined ? { nombre: community.nombre } : {}),
+        ...(community.poblacion !== undefined ? { poblacion: community.poblacion } : {}),
+        ...(community.location !== undefined || community.latitude !== undefined
+          ? { location: community.location ?? community.latitude }
+          : {}),
+        ...(community.latitude !== undefined ? { latitude: community.latitude } : {}),
+        ...(community.longitude !== undefined ? { longitude: community.longitude } : {}),
+        ...(community.boundary !== undefined ? { boundary: community.boundary } : {}),
       },
     });
     return new Community(updated);
